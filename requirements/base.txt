@@ -1,0 +1,28 @@
+# Core Django & REST Framework
+Django>=4.2,<5.1
+djangorestframework>=3.14.0
+django-cors-headers>=4.3.1
+django-filter>=23.5
+drf-spectacular>=0.27.0
+djangorestframework-simplejwt>=5.3.1
+
+# Database & Connection Pooling
+psycopg2-binary>=2.9.9
+dj-database-url>=2.1.0
+
+# Redis & Caching & Rate Limiting
+redis>=5.0.1
+django-redis>=5.4.0
+
+# Task Processing & Queue
+celery[redis]>=5.3.6
+django-celery-results>=2.5.1
+
+# Utilities, Environment & Config
+python-dotenv>=1.0.1
+pydantic>=2.6.0
+
+# Observability & Metrics
+django-prometheus>=2.3.1
+prometheus-client>=0.19.0
+structlog>=24.1.0

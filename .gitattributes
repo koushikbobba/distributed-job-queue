@@ -1,0 +1,9 @@
+# Normalize line endings to LF on checkout for all text files
+* text=auto eol=lf
+
+# Shell scripts must always be LF (Docker entrypoints)
+*.sh text eol=lf
+
+# Windows-specific files
+*.bat text eol=crlf
+*.cmd text eol=crlf
