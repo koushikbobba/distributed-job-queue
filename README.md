@@ -10,50 +10,59 @@ Features multi-priority scheduling, distributed locking, atomic state transition
 
 ```mermaid
 flowchart TD
-    Client(["HTTP Client / Webhook"])
+    Client["HTTP Client / Webhook"]
     
-    subgraph APILayer ["Django API Layer (Horizontally Scalable)"]
+    subgraph APILayer ["Django API Layer"]
         API["Django REST Framework"]
-        Auth["JWT Authenticator & Token Blacklist"]
-        Throttle["Redis Rate Limiter (100 req/min, 10 jobs/min)"]
-        Idem["Idempotency Guard (SHA-256 + Unique DB Constraint)"]
+        Auth["JWT Auth + Token Blacklist"]
+        Throttle["Redis Rate Limiter"]
+        Idem["Idempotency Guard"]
     end
 
-    subgraph StateAndCoordination ["State & Coordination Layer"]
-        PG[("PostgreSQL\n- Jobs (State Machine & JSONB Payloads)\n- JobExecutions (Audit History)\n- JobResults (Outputs)\n- IdempotencyKeys")]
-        RedisCoord[("Redis 7.0\n- Priority Message Queues\n- Distributed Locks (SETNX + Lua)\n- Rate Limit Buckets")]
+    subgraph Storage ["State + Coordination Layer"]
+        PG[("PostgreSQL")]
+        Redis[("Redis 7.0")]
     end
 
-    subgraph CeleryPool ["Celery Distributed Worker Pool"]
-        WorkerHigh["High-Priority Worker Node(s)"]
-        WorkerDefault["Default / Low-Priority Worker Node(s)"]
+    subgraph Workers ["Celery Worker Pool"]
+        WH["High-Priority Workers"]
+        WD["Default / Low-Priority Workers"]
     end
 
-    subgraph Observability ["Observability & Telemetry"]
-        Prom["Prometheus Engine"]
-        Grafana["Grafana Visual Dashboard"]
+    subgraph Monitoring ["Observability"]
+        Prom["Prometheus"]
+        Graf["Grafana Dashboard"]
     end
 
-    Client -->|1. POST /api/jobs/ (with Idempotency-Key)| API
+    Client -->|"POST /api/jobs/"| API
     API --> Auth
     Auth --> Throttle
     Throttle --> Idem
-    Idem -->|2. ACID Insert Job (State: QUEUED)| PG
-    API -->|3. Publish Job ID to Redis Queue (on_commit)| RedisCoord
-    API -->|4. HTTP 202 Accepted| Client
+    Idem -->|"Insert Job - QUEUED"| PG
+    API -->|"Publish to Queue"| Redis
+    API -->|"HTTP 202 Accepted"| Client
 
-    RedisCoord -->|5. BRPOP Tasks in Priority Order| WorkerHigh
-    RedisCoord -->|5. BRPOP Tasks| WorkerDefault
+    Redis -->|"BRPOP high queue"| WH
+    Redis -->|"BRPOP default queue"| WD
 
-    WorkerHigh -->|6. Atomic Acquire Lock (SETNX)| RedisCoord
-    WorkerHigh -->|7. Transition State to PROCESSING| PG
-    WorkerHigh -->|8. Execute Pluggable Task Handler| WorkerHigh
-    WorkerHigh -->|9. Update State to COMPLETED / RETRYING / FAILED| PG
-    WorkerHigh -->|10. Safe Release Lock (Lua Script)| RedisCoord
+    WH -->|"Acquire Lock SETNX"| Redis
+    WH -->|"Update to PROCESSING"| PG
+    WH -->|"Execute Task Handler"| WH
+    WH -->|"Update to COMPLETED/FAILED"| PG
+    WH -->|"Release Lock via Lua"| Redis
 
-    API -.->|Expose /metrics| Prom
-    Prom --> Grafana
+    API -.->|"Expose /metrics"| Prom
+    Prom --> Graf
 ```
+
+### Component Responsibilities
+
+| Component | Role |
+|:---|:---|
+| **PostgreSQL** | Jobs, JobExecutions (audit history), JobResults (outputs), IdempotencyKeys |
+| **Redis** | Priority message queues, distributed locks (SETNX + Lua), rate limit buckets |
+| **API Layer** | JWT auth, rate limiting (100 req/min, 10 jobs/min), idempotency (SHA-256 + unique constraint) |
+| **Workers** | Multi-priority task execution with `acks_late` for crash recovery |
 
 ---
 
@@ -74,7 +83,13 @@ flowchart TD
 
 ### 1. Atomic Job State Machine
 Jobs transition through a strictly enforced finite state machine:
-`QUEUED` ➔ `PROCESSING` ➔ `COMPLETED` | `RETRYING` ➔ `FAILED` | `CANCELLED`
+
+```
+QUEUED → PROCESSING → COMPLETED
+                    → RETRYING → PROCESSING (retry)
+                    → FAILED
+       → CANCELLED
+```
 
 ### 2. At-Least-Once Delivery & Worker Crash Recovery
 Configured with `task_acks_late = True` and `task_reject_on_worker_lost = True`. If a worker process is terminated by the OS (OOM / power loss), unacknowledged messages are automatically returned to the Redis queue and re-delivered to another active worker.
@@ -91,7 +106,7 @@ Clients can supply an `Idempotency-Key: <uuid>` header. The system hashes the re
 Three distinct priority bands: `high_priority`, `default_priority`, `low_priority`. Workers perform priority blocking pops (`BRPOP`) draining high-priority tasks before lower bands.
 
 ### 6. Exponential Backoff with Jitter
-Failed jobs retry with randomized exponential backoff ($2^{\text{retry\_count}} \times \text{base\_delay} + \text{jitter}$) to eliminate thundering herd storms on downstream services.
+Failed jobs retry with randomized exponential backoff to eliminate thundering herd storms on downstream services. The formula uses `2^retry_count * base_delay` plus a random jitter factor.
 
 ---
 
@@ -99,7 +114,7 @@ Failed jobs retry with randomized exponential backoff ($2^{\text{retry\_count}} 
 
 ### 1. Clone & Configure Environment
 ```bash
-git clone https://github.com/your-username/distributed-job-queue.git
+git clone https://github.com/koushikbobba/distributed-job-queue.git
 cd distributed-job-queue
 cp .env.example .env
 ```
