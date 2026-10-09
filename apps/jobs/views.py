@@ -12,7 +12,7 @@ from users.permissions import IsOwnerOrAdmin
 from workers.tasks import execute_job_task
 from .filters import JobFilter
 from .idempotency import IdempotencyHandler
-from .models import Job, JobPriority, JobStatus
+from .models import Job, JobPriority, JobStatus, OutboxMessage, OutboxStatus
 from .serializers import (
     JobCancelResponseSerializer,
     JobCreateSerializer,
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class JobViewSet(viewsets.ModelViewSet):
     """
     CRUD and Management ViewSet for asynchronous background jobs.
-    Enforces multi-tenant ownership, idempotency checks, and rate limiting.
+    Enforces multi-tenant ownership, idempotency checks, transactional outbox, and rate limiting.
     """
 
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
@@ -46,7 +46,6 @@ class JobViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        # Multi-tenant isolation: regular users only see their own jobs
         if self.request.user.is_staff or self.request.user.is_superuser:
             return Job.objects.all().select_related("result").prefetch_related("executions")
         return (
@@ -69,7 +68,7 @@ class JobViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Submit a Background Job",
-        description="Creates a new job, persists it to PostgreSQL, and queues it in Celery. Supports 'Idempotency-Key' header.",
+        description="Creates a new job, persists it to PostgreSQL, and queues it in Celery with Transactional Outbox guarantee.",
         parameters=[
             OpenApiParameter(
                 name="Idempotency-Key",
@@ -87,7 +86,6 @@ class JobViewSet(viewsets.ModelViewSet):
         },
     )
     def create(self, request: Request, *args, **kwargs) -> Response:
-        """Processes job submission with atomic DB transactions and idempotency checks."""
         return IdempotencyHandler.process_idempotent_request(
             request=request,
             view_func=self._create_job_internal,
@@ -100,19 +98,23 @@ class JobViewSet(viewsets.ModelViewSet):
         priority = serializer.validated_data.get("priority", JobPriority.MEDIUM)
         queue_name = f"{priority}_priority" if priority in ["high", "low"] else "default_priority"
 
-        # ACID Transaction: Persist to DB, then dispatch task ONLY after commit
+        # ACID Transaction: Persist Job + Transactional Outbox row in single commit
         with transaction.atomic():
             job = serializer.save(
                 user=request.user,
                 status=JobStatus.QUEUED,
             )
 
-            # Critical: Dispatch to Celery ONLY when DB transaction successfully commits
+            outbox_entry = OutboxMessage.objects.create(
+                job=job,
+                queue_name=queue_name,
+                payload=job.payload,
+                status=OutboxStatus.PENDING,
+            )
+
+            # Direct fast-path dispatch upon commit; outbox reaper handles worker death/network split
             transaction.on_commit(
-                lambda: execute_job_task.apply_async(
-                    args=[str(job.id)],
-                    queue=queue_name,
-                )
+                lambda: self._dispatch_and_mark_outbox(job.id, queue_name, outbox_entry.id)
             )
 
         logger.info(f"[API] Created and queued Job {job.id} for user {request.user.id} on queue '{queue_name}'")
@@ -124,28 +126,33 @@ class JobViewSet(viewsets.ModelViewSet):
         response.job_instance = job
         return response
 
+    @staticmethod
+    def _dispatch_and_mark_outbox(job_id, queue_name, outbox_id):
+        try:
+            execute_job_task.apply_async(
+                args=[str(job_id)],
+                queue=queue_name,
+            )
+            OutboxMessage.objects.filter(id=outbox_id).update(
+                status=OutboxStatus.PUBLISHED,
+                published_at=timezone.now(),
+            )
+        except Exception as exc:
+            logger.error(f"Failed direct dispatch for Outbox {outbox_id}: {exc}. Fallback sweeper will publish.")
+
     @extend_schema(
         summary="Cancel a Job",
         description="Requests cancellation of a queued or running job.",
         responses={
             200: JobCancelResponseSerializer,
-            400: OpenApiResponse(description="Job cannot be cancelled (e.g. already COMPLETED or FAILED)"),
+            400: OpenApiResponse(description="Job cannot be cancelled (already terminal)"),
         },
     )
     @action(detail=True, methods=["post"], url_path="cancel")
     def cancel(self, request: Request, pk=None) -> Response:
-        """
-        Cancels a queued or processing job.
-        
-        Engineering explanation on running task cancellation:
-        - If QUEUED: Task is immediately marked CANCELLED in DB and ignored by workers.
-        - If PROCESSING: POSIX processes cannot be safely terminated mid-instruction without risk
-          of resource leaks or half-committed DB state. We set status=CANCELLED in DB and issue
-          Celery task revocation, which cooperative worker handlers inspect.
-        """
         job = self.get_object()
 
-        if job.status in [JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED]:
+        if job.is_terminal:
             return Response(
                 {
                     "error": f"Cannot cancel job {job.id} because it is already in terminal state '{job.status}'.",
@@ -156,10 +163,20 @@ class JobViewSet(viewsets.ModelViewSet):
 
         previous_status = job.status
         with transaction.atomic():
-            job.status = JobStatus.CANCELLED
-            job.save(update_fields=["status", "updated_at"])
+            # Use select_for_update to guard race conditions with worker completing simultaneously
+            locked_job = Job.objects.select_for_update().get(id=job.id)
+            if locked_job.is_terminal:
+                return Response(
+                    {
+                        "error": f"Cannot cancel job {job.id} because it just transitioned to terminal state '{locked_job.status}'.",
+                        "status": locked_job.status,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        # Attempt Celery task revocation
+            locked_job.transition_to(JobStatus.CANCELLED, save=True)
+
+        # Signal Celery revocation
         try:
             celery_app.control.revoke(str(job.id), terminate=False)
         except Exception as exc:
@@ -171,10 +188,7 @@ class JobViewSet(viewsets.ModelViewSet):
                 "status": JobStatus.CANCELLED,
                 "previous_status": previous_status,
                 "message": "Job successfully cancelled.",
-                "details": (
-                    "If the job was QUEUED, it will not be executed. If it was already PROCESSING, "
-                    "cooperative execution checks will halt further processing."
-                ),
+                "details": "Cancellation recorded. Any in-flight execution will discard results at the next boundary.",
             },
             status=status.HTTP_200_OK,
         )

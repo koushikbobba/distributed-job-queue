@@ -4,6 +4,7 @@ import time
 import uuid
 from typing import Generator
 import django_redis
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class RedisDistributedLock:
     Production-grade Redis-backed Distributed Lock using atomic primitives:
     - Acquire: SET key token NX PX <ttl_ms>
     - Release: Lua script checking token before DEL (prevents releasing expired locks held by others)
+    - Reliability: Strict fail-closed semantics by default in production.
     """
 
     def __init__(self, key: str, ttl_seconds: int = 60, connection_alias: str = "default"):
@@ -34,11 +36,20 @@ class RedisDistributedLock:
         self.ttl_seconds = ttl_seconds
         self.ttl_ms = int(ttl_seconds * 1000)
         self.token = str(uuid.uuid4())
+        self.connection_alias = connection_alias
+        self.acquired = False
+
+        # If testing/locmem cache is configured, allow permissive lock bypass
+        self._allow_mock = getattr(settings, "CELERY_TASK_ALWAYS_EAGER", False) or getattr(settings, "LOCK_PERMISSIVE_TEST_MODE", False)
+
         try:
             self.redis_client = django_redis.get_redis_connection(connection_alias)
-        except Exception:
-            self.redis_client = None
-        self.acquired = False
+        except Exception as exc:
+            if self._allow_mock:
+                self.redis_client = None
+            else:
+                logger.error(f"[DistributedLock] Failed to connect to Redis for lock '{self.key}': {exc}")
+                raise DistributedLockException(f"Redis connection failed for lock '{self.key}': {exc}") from exc
 
     def acquire(self, blocking: bool = False, timeout_seconds: float = 5.0) -> bool:
         """
@@ -46,17 +57,27 @@ class RedisDistributedLock:
         If blocking=True, retries until timeout_seconds is reached.
         """
         if self.redis_client is None:
-            self.acquired = True
-            return True
+            if self._allow_mock:
+                self.acquired = True
+                return True
+            raise DistributedLockException(f"Cannot acquire lock '{self.key}': Redis client is unavailable.")
 
         start_time = time.monotonic()
         while True:
-            result = self.redis_client.set(
-                self.key,
-                self.token,
-                nx=True,
-                px=self.ttl_ms,
-            )
+            try:
+                result = self.redis_client.set(
+                    self.key,
+                    self.token,
+                    nx=True,
+                    px=self.ttl_ms,
+                )
+            except Exception as exc:
+                logger.error(f"[DistributedLock] Error during SETNX for '{self.key}': {exc}")
+                if self._allow_mock:
+                    self.acquired = True
+                    return True
+                raise DistributedLockException(f"Redis SETNX failed for lock '{self.key}': {exc}") from exc
+
             if result:
                 self.acquired = True
                 logger.debug(f"[DistributedLock] Acquired lock '{self.key}' with token '{self.token}' (TTL: {self.ttl_seconds}s)")
@@ -93,6 +114,9 @@ class RedisDistributedLock:
             else:
                 logger.warning(f"[DistributedLock] Lock '{self.key}' was already expired or claimed by another worker")
             return deleted
+        except Exception as exc:
+            logger.error(f"[DistributedLock] Error during Lua release for '{self.key}': {exc}")
+            return False
         finally:
             self.acquired = False
 

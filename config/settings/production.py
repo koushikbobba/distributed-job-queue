@@ -1,9 +1,21 @@
 import os
+from django.core.exceptions import ImproperlyConfigured
 from .base import *  # noqa: F403
 
 DEBUG = False
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY or SECRET_KEY.startswith("django-insecure") or "insecure" in SECRET_KEY:
+    raise ImproperlyConfigured(
+        "DJANGO_SECRET_KEY environment variable is required and must not use an insecure default in production!"
+    )
+
+raw_allowed_hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
+if not raw_allowed_hosts:
+    raise ImproperlyConfigured(
+        "DJANGO_ALLOWED_HOSTS environment variable is required in production!"
+    )
+ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts.split(",") if h.strip()]
 
 # Strict Security Headers
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -22,7 +34,7 @@ LOGGING = {
     "formatters": {
         "json": {
             "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
-            "format": "%(asctime)s %(levelname)s %(name)s %(message)s %(module)s %(lineno)d",
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s %(module)s %(lineno)d %(correlation_id)s",
         },
     },
     "handlers": {

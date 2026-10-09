@@ -1,5 +1,6 @@
 import uuid
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
@@ -26,8 +27,29 @@ class JobType(models.TextChoices):
     SIMULATE_LONG_TASK = "simulate_long_task", "Simulate Long Task"
 
 
+class OutboxStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    PUBLISHED = "PUBLISHED", "Published"
+    FAILED = "FAILED", "Failed"
+
+
+class InvalidStateTransitionError(ValidationError):
+    """Raised when an illegal state machine transition is attempted."""
+    pass
+
+
 class Job(models.Model):
     """Primary Job entity representing a unit of asynchronous work."""
+
+    # Explicit State Machine Transition Rules
+    VALID_TRANSITIONS = {
+        JobStatus.QUEUED: {JobStatus.PROCESSING, JobStatus.CANCELLED},
+        JobStatus.PROCESSING: {JobStatus.COMPLETED, JobStatus.RETRYING, JobStatus.FAILED, JobStatus.CANCELLED},
+        JobStatus.RETRYING: {JobStatus.PROCESSING, JobStatus.CANCELLED, JobStatus.FAILED},
+        JobStatus.COMPLETED: set(),  # Terminal
+        JobStatus.FAILED: set(),     # Terminal
+        JobStatus.CANCELLED: set(),  # Terminal
+    }
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(
@@ -110,6 +132,11 @@ class Job(models.Model):
                 fields=["job_type", "status"],
                 name="idx_jobs_type_status",
             ),
+            # Index for finding stalled jobs in PROCESSING
+            models.Index(
+                fields=["status", "started_at"],
+                name="idx_jobs_status_started",
+            ),
         ]
 
     def __str__(self) -> str:
@@ -123,6 +150,29 @@ class Job(models.Model):
             JobStatus.FAILED,
             JobStatus.CANCELLED,
         }
+
+    def transition_to(self, new_status: str, save: bool = True, **fields) -> bool:
+        """
+        Safely transitions the job to a new state if permitted by the finite state machine.
+        Raises InvalidStateTransitionError on illegal transitions.
+        """
+        if self.status == new_status:
+            return True
+
+        allowed_next = self.VALID_TRANSITIONS.get(self.status, set())
+        if new_status not in allowed_next:
+            raise InvalidStateTransitionError(
+                f"Illegal state transition from '{self.status}' to '{new_status}' for Job {self.id}."
+            )
+
+        self.status = new_status
+        for key, val in fields.items():
+            setattr(self, key, val)
+
+        if save:
+            update_fields = ["status", "updated_at"] + list(fields.keys())
+            self.save(update_fields=update_fields)
+        return True
 
 
 class JobResult(models.Model):
@@ -240,3 +290,41 @@ class IdempotencyKey(models.Model):
     @property
     def is_expired(self) -> bool:
         return timezone.now() >= self.expires_at
+
+
+class OutboxMessage(models.Model):
+    """
+    Transactional Outbox pattern implementation:
+    Guarantees at-least-once message publishing to Redis/Celery without dual-write race conditions.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job = models.ForeignKey(
+        Job,
+        on_delete=models.CASCADE,
+        related_name="outbox_messages",
+    )
+    queue_name = models.CharField(max_length=64, default="default_priority")
+    payload = models.JSONField(default=dict)
+    status = models.CharField(
+        max_length=20,
+        choices=OutboxStatus.choices,
+        default=OutboxStatus.PENDING,
+        db_index=True,
+    )
+    retry_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+    error_message = models.TextField(null=True, blank=True)
+
+    class Meta:
+        db_table = "outbox_messages"
+        verbose_name = "outbox message"
+        verbose_name_plural = "outbox messages"
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="idx_outbox_status_created"),
+        ]
+
+    def __str__(self) -> str:
+        return f"OutboxMessage {self.id} for Job {self.job_id} [{self.status}]"

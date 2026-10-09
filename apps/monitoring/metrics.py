@@ -15,6 +15,13 @@ JOB_EXECUTION_SECONDS = Histogram(
     buckets=(0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0),
 )
 
+JOB_QUEUE_LATENCY_SECONDS = Histogram(
+    "job_queue_latency_seconds",
+    "Time spent by a job waiting in queue before worker pickup",
+    ["job_type"],
+    buckets=(0.05, 0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0),
+)
+
 JOB_RETRIES_TOTAL = Counter(
     "job_queue_retries_total",
     "Total count of retry attempts triggered",

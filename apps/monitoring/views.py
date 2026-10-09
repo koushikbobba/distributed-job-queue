@@ -15,20 +15,20 @@ logger = logging.getLogger(__name__)
 class HealthCheckView(APIView):
     """
     Production health check endpoint verifying database connectivity,
-    Redis availability, and reporting active queue metrics.
+    Redis availability, and reporting active queue metrics with sanitized errors.
     """
 
     permission_classes = [permissions.AllowAny]
 
     @extend_schema(
         summary="System Health & Status Check",
-        description="Verifies PostgreSQL, Redis, and overall cluster health.",
+        description="Verifies PostgreSQL, Redis, and overall cluster health with sanitized outputs.",
     )
     def get(self, request: Request) -> Response:
         health_status = {
             "status": "healthy",
-            "database": "unreachable",
-            "redis": "unreachable",
+            "database": "healthy",
+            "redis": "healthy",
             "metrics": {},
         }
         status_code = status.HTTP_200_OK
@@ -38,9 +38,9 @@ class HealthCheckView(APIView):
             with connection.cursor() as cursor:
                 cursor.execute("SELECT 1;")
                 cursor.fetchone()
-            health_status["database"] = "healthy"
         except Exception as exc:
-            health_status["database"] = f"unhealthy: {exc}"
+            logger.error(f"[HealthCheck] Database check failed: {exc}")
+            health_status["database"] = "unhealthy"
             health_status["status"] = "degraded"
             status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
@@ -48,9 +48,9 @@ class HealthCheckView(APIView):
         try:
             redis_client = django_redis.get_redis_connection("default")
             redis_client.ping()
-            health_status["redis"] = "healthy"
         except Exception as exc:
-            health_status["redis"] = f"unhealthy: {exc}"
+            logger.error(f"[HealthCheck] Redis check failed: {exc}")
+            health_status["redis"] = "unhealthy"
             health_status["status"] = "degraded"
             status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
@@ -67,7 +67,7 @@ class HealthCheckView(APIView):
                 "failed_jobs": failed_count,
                 "completed_jobs": completed_count,
             }
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.error(f"[HealthCheck] Failed to aggregate metrics: {exc}")
 
         return Response(health_status, status=status_code)
