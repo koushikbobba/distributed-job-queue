@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDE Interview Master Dashboard | Distributed Job Queue</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+        .perspective-1000 { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+        .card-flip { transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+        .flipped { transform: rotateY(180deg); }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white font-bold text-xl">
+                    ⚡
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                        Distributed Job Queue <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">SDE Interview Mastery</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Interactive Anki-Style Learning Dashboard & Viva Simulator (200 Questions)</p>
+                </div>
+            </div>
+
+            <!-- Global Action Bar -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="anki_deck_distributed_job_queue.csv" download class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition shadow-sm">
+                    <span>📥 Download Anki CSV</span>
+                </a>
+                <a href="Distributed_Job_Queue_Viva_and_Project_Guide.pdf" download class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition shadow-sm">
+                    <span>📄 Download Full PDF</span>
+                </a>
+                <button onclick="resetProgress()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                    🔄 Reset Stats
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-6 py-6 flex-1 w-full flex flex-col gap-6">
+
+        <!-- Metric Cards Bar -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs font-medium text-slate-400">Total Question Bank</span>
+                <div class="text-2xl font-bold text-white mt-1">200</div>
+                <div class="text-[11px] text-cyan-400 mt-1">100% Comprehensive</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs font-medium text-slate-400">Mastered / Easy</span>
+                <div id="count-mastered" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Confidence Level: High</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs font-medium text-slate-400">Review Later / Hard</span>
+                <div id="count-flagged" class="text-2xl font-bold text-amber-400 mt-1">0</div>
+                <div class="text-[11px] text-slate-400 mt-1">Requires revision</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
+                <span class="text-xs font-medium text-slate-400">Cards Reviewed</span>
+                <div id="count-viewed" class="text-2xl font-bold text-indigo-400 mt-1">0</div>
+                <div id="progress-percent" class="text-[11px] text-slate-400 mt-1">0% Completed</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between col-span-2 md:col-span-1">
+                <span class="text-xs font-medium text-slate-400">Overall Mastery</span>
+                <div class="w-full bg-slate-800 rounded-full h-3 mt-2 overflow-hidden">
+                    <div id="mastery-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div id="mastery-label" class="text-[11px] text-slate-400 mt-2 font-mono">0 / 200 Ready</div>
+            </div>
+        </div>
+
+        <!-- Mode Switcher Tabs -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-3">
+            <div class="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <button id="tab-flashcard" onclick="switchMode('flashcard')" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow">
+                    🎴 Flashcard Simulator
+                </button>
+                <button id="tab-table" onclick="switchMode('table')" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white">
+                    📑 Question Explorer (All 200)
+                </button>
+                <button id="tab-guide" onclick="switchMode('guide')" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white">
+                    🧠 How Anki Works for Interviews
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="flex items-center gap-3 flex-wrap text-xs">
+                <select id="filter-category" onchange="filterCards()" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500">
+                    <option value="ALL">All 8 Topics (200 Questions)</option>
+                    <option value="Architecture & Fundamentals">Architecture & Fundamentals</option>
+                    <option value="PostgreSQL & Database Design">PostgreSQL & Database Design</option>
+                    <option value="Redis & Distributed Locking">Redis & Distributed Locking</option>
+                    <option value="Celery Workers & Failure Semantics">Celery Workers & Failure Semantics</option>
+                    <option value="Idempotency & Deduplication">Idempotency & Deduplication</option>
+                    <option value="Auth, Security & Rate Limiting">Auth, Security & Rate Limiting</option>
+                    <option value="Observability & Monitoring">Observability & Monitoring</option>
+                    <option value="Docker & Cloud Deployment">Docker & Cloud Deployment</option>
+                    <option value="Testing & Load Simulation">Testing & Load Simulation</option>
+                </select>
+
+                <select id="filter-status" onchange="filterCards()" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500">
+                    <option value="ALL">All Statuses</option>
+                    <option value="FLAGGED">Hard / Flagged Only</option>
+                    <option value="UNVIEWED">Unreviewed Only</option>
+                    <option value="MASTERED">Mastered Only</option>
+                </select>
+
+                <input type="text" id="search-input" oninput="filterCards()" placeholder="Search keywords, Q#, Lua, FSM..." class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 w-52">
+            </div>
+        </div>
+
+        <!-- MODE 1: FLASHCARD ANKI SIMULATOR -->
+        <section id="section-flashcard" class="flex flex-col items-center justify-center py-4 gap-6">
+            <div class="w-full max-w-3xl flex items-center justify-between text-xs text-slate-400 font-mono">
+                <div>Card <span id="current-index-label" class="text-cyan-400 font-bold text-sm">1</span> of <span id="total-filtered-label" class="text-white font-bold text-sm">200</span></div>
+                <div id="current-category-pill" class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-sans">Architecture</div>
+                <div class="flex items-center gap-2">
+                    <span>Shortcut: <b>Space</b> (Flip), <b>1/2/3</b> (Rate)</span>
+                </div>
+            </div>
+
+            <!-- Flashcard Frame (Perspective Container) -->
+            <div class="w-full max-w-3xl h-[400px] perspective-1000 cursor-pointer" onclick="toggleCardFlip()">
+                <div id="card-inner" class="card-flip relative w-full h-full transform-style-3d">
+                    
+                    <!-- FRONT SIDE -->
+                    <div class="absolute inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-slate-800 hover:border-cyan-500/50 rounded-2xl p-8 flex flex-col justify-between backface-hidden shadow-2xl transition">
+                        <div class="flex items-center justify-between">
+                            <span id="card-q-number" class="px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono font-bold text-xs">Question #1</span>
+                            <span class="text-xs text-slate-500 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span> Click or Press Spacebar to Reveal Answer
+                            </span>
+                        </div>
+
+                        <div class="my-auto">
+                            <h2 id="card-question-text" class="text-xl md:text-2xl font-bold text-white tracking-tight leading-snug">
+                                Loading question...
+                            </h2>
+                        </div>
+
+                        <div class="flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/80 pt-4">
+                            <span>Topic: <span id="card-topic-text" class="text-slate-300 font-medium">General</span></span>
+                            <span>Prompt: Try answering aloud before flipping</span>
+                        </div>
+                    </div>
+
+                    <!-- BACK SIDE (ANSWER) -->
+                    <div class="absolute inset-0 w-full h-full bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-indigo-500/40 rounded-2xl p-8 flex flex-col justify-between backface-hidden rotate-y-180 shadow-2xl overflow-y-auto">
+                        <div class="flex items-center justify-between">
+                            <span id="card-ans-number" class="px-3 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono font-bold text-xs">Examiner Answer</span>
+                            <span class="text-xs text-slate-400">Click or Space to flip back</span>
+                        </div>
+
+                        <div class="my-auto py-2">
+                            <div id="card-answer-text" class="text-sm md:text-base text-slate-200 leading-relaxed font-normal">
+                                Loading answer...
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/80 pt-4">
+                            <span class="text-emerald-400 font-mono">✓ Verified Production Answer</span>
+                            <span>Rate your recall below to advance</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Anki-Style Confidence Buttons -->
+            <div class="flex items-center gap-3 w-full max-w-3xl justify-center flex-wrap">
+                <button onclick="prevCard(event)" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold transition flex items-center gap-1.5">
+                    ⬅ Previous
+                </button>
+                <button onclick="rateCard('again', event)" class="px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                    🔴 Again / Hard (Key: 1)
+                </button>
+                <button onclick="rateCard('good', event)" class="px-5 py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                    🟡 Good / Review (Key: 2)
+                </button>
+                <button onclick="rateCard('easy', event)" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                    🟢 Mastered / Easy (Key: 3)
+                </button>
+                <button onclick="nextCard(event)" class="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-bold transition flex items-center gap-1.5">
+                    Next ➡
+                </button>
+            </div>
+        </section>
+
+        <!-- MODE 2: TABLE / QUESTION EXPLORER -->
+        <section id="section-table" class="hidden flex-col gap-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
+                <div class="max-h-[600px] overflow-y-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 sticky top-0 uppercase tracking-wider font-mono border-b border-slate-800 z-10">
+                            <tr>
+                                <th class="p-3.5 w-16 text-center">Q#</th>
+                                <th class="p-3.5 w-44">Category</th>
+                                <th class="p-3.5">Interview Question</th>
+                                <th class="p-3.5 w-24 text-center">Status</th>
+                                <th class="p-3.5 w-20 text-center">Practice</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-800/60 font-sans">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODE 3: HOW ANKI HELPS LEARN FOR INTERVIEWS -->
+        <section id="section-guide" class="hidden flex-col gap-6 max-w-4xl mx-auto text-slate-300 leading-relaxed text-sm">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 flex flex-col gap-6 shadow-xl">
+                <div class="flex items-center gap-3 text-cyan-400 border-b border-slate-800 pb-4">
+                    <span class="text-3xl">🧠</span>
+                    <div>
+                        <h2 class="text-xl font-bold text-white">Can Anki Help You Ace Your SDE Interviews?</h2>
+                        <p class="text-xs text-slate-400">The science of Active Recall & Spaced Repetition for Backend Engineering</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span> 1. The Core Problem with SDE Technical Interviews
+                    </h3>
+                    <p>
+                        In backend developer interviews, examiners do not just ask you to recite basic definitions. They probe your understanding of <b>distributed systems trade-offs and edge cases</b>:
+                        <i>"Why did you release the lock with Lua instead of DEL?", "What happens if the worker dies after database commit?", "How does worker_prefetch_multiplier prevent queue starvation?"</i>
+                    </p>
+                    <p>
+                        Passive reading (re-reading code or notes) creates an <b>illusion of competence</b>. When an interviewer challenges you with realistic follow-ups, passive recognition breaks down.
+                    </p>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> 2. Why Anki & Flashcards Work Wonders
+                    </h3>
+                    <p>
+                        Anki uses two cognitive principles proven by neuroscience:
+                    </p>
+                    <ul class="list-disc list-inside space-y-2 pl-2 text-slate-300">
+                        <li><b>Active Recall (Testing Effect):</b> Seeing the prompt (e.g. <i>"Why use transaction.on_commit?"</i>) forces your brain to reconstruct the technical solution from scratch. This strengthens retrieval pathways by over 300%.</li>
+                        <li><b>Spaced Repetition System (SRS):</b> Hard questions (e.g. atomic Lua scripts, Optimistic Concurrency Control, Transactional Outbox) are reviewed more frequently, while easy concepts are spaced out over days and weeks.</li>
+                    </ul>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span> 3. How to Use this Dashboard & Your Anki Deck
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                            <h4 class="font-bold text-white mb-2 text-xs uppercase tracking-wider text-cyan-400">Method 1: Interactive Web Simulator</h4>
+                            <p class="text-xs text-slate-400 mb-2">Use the <b>🎴 Flashcard Simulator</b> above right inside your browser:</p>
+                            <ul class="text-xs space-y-1.5 list-disc list-inside text-slate-300">
+                                <li>Press <b>Spacebar</b> to flip cards.</li>
+                                <li>Press <b>1</b> for Again, <b>2</b> for Review, <b>3</b> for Mastered.</li>
+                                <li>Filter by specific topic (e.g., Redis Locking or PostgreSQL).</li>
+                            </ul>
+                        </div>
+                        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
+                            <h4 class="font-bold text-white mb-2 text-xs uppercase tracking-wider text-emerald-400">Method 2: Official Anki Desktop App</h4>
+                            <p class="text-xs text-slate-400 mb-2">Study on mobile or desktop with the exported deck:</p>
+                            <ol class="text-xs space-y-1.5 list-decimal list-inside text-slate-300">
+                                <li>Download the <code>anki_deck_distributed_job_queue.csv</code> button on top.</li>
+                                <li>Open Anki Desktop & click <b>Import File</b>.</li>
+                                <li>Select comma separated, map Front/Back/Tags.</li>
+                                <li>Practice 20 cards every morning before your interviews!</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-xs text-cyan-300 flex items-start gap-3">
+                    <span class="text-lg">💡</span>
+                    <div>
+                        <b>Pro Tip for Interviews:</b> When you flip a card, don't just read the answer in your head. <b>Speak the explanation aloud</b> in 2-3 concise sentences. This trains your verbal fluency, speech pacing, and engineering vocabulary.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Embedded Data & Engine -->
+    <script>
+        const QUESTIONS_DATA = [{"id": 1, "category": "Celery Workers & Failure Semantics", "question": "What is the primary objective of this project?", "answer": "The primary objective is to build a production-grade, fault-tolerant distributed job queue and task processing platform that decouples synchronous HTTP request-response lifecycles from long-running, compute-heavy, or I/O-bound background tasks, ensuring sub-10ms API responses and reliable asynchronous execution."}, {"id": 2, "category": "Celery Workers & Failure Semantics", "question": "What are some concrete examples of background tasks handled by this system?", "answer": "Sending bulk/transactional emails (send_email), generating heavy PDF/Excel financial reports (generate_report), processing and transforming batches of data (process_data), and simulating long-running asynchronous workflows (simulate_long_task)."}, {"id": 3, "category": "Redis & Distributed Locking", "question": "Why can't long-running tasks be executed directly inside standard Django views?", "answer": "Executing long tasks inside Django views blocks WSGI/ASGI worker threads for the task duration, leading to HTTP 504 Gateway Timeouts, web server thread exhaustion, and complete denial of service for concurrent users."}, {"id": 4, "category": "Redis & Distributed Locking", "question": "What is the complete technology stack used across the project?", "answer": "Python 3.11, Django 4.2+, Django REST Framework, Celery 5.3+, Redis 7.0, PostgreSQL 15, Docker & Docker Compose, Prometheus, Grafana, and Pytest."}, {"id": 5, "category": "Idempotency & Deduplication", "question": "What exact role does PostgreSQL play in this architecture?", "answer": "PostgreSQL serves as the persistent, ACID-compliant source of truth. It stores user accounts, macro job state machines, 1:N execution audit logs (JobExecution), 1:1 output payloads (JobResult), and idempotency keys with composite B-tree indexes."}, {"id": 6, "category": "Redis & Distributed Locking", "question": "Why do we need Redis if PostgreSQL is already present?", "answer": "Redis provides three specialized in-memory capabilities: (1) an ultra-low-latency Celery message broker supporting non-blocking priority pops (BRPOP), (2) a high-speed distributed locking engine (SETNX), and (3) a sliding-window rate-limiting cache."}, {"id": 7, "category": "Redis & Distributed Locking", "question": "Why not store all job states and queues exclusively in Redis?", "answer": "Redis lacks relational integrity, complex composite B-tree indexing, and long-term ACID transactional durability needed for user dashboards, historical auditing, compliance, and large payload queries."}, {"id": 8, "category": "Redis & Distributed Locking", "question": "Explain the role of Celery in this architecture.", "answer": "Celery runs as an independent distributed worker pool, polling Redis queues in strict priority order, managing worker concurrency slots, executing task logic, handling retries, and capturing worker crash signals."}, {"id": 9, "category": "Celery Workers & Failure Semantics", "question": "Why did you choose UUIDv4 for model primary keys instead of auto-incrementing integers?", "answer": "UUIDv4 prevents ID enumeration attacks in multi-tenant REST APIs (where attackers guess /api/jobs/1, /api/jobs/2), eliminates collision risks across distributed database shards, and allows IDs to be safely generated before DB insertion."}, {"id": 10, "category": "PostgreSQL & Database Design", "question": "Can using UUIDv4 as primary keys cause database performance degradation in PostgreSQL?", "answer": "Yes, because random UUIDv4 values cause B-tree leaf page splits and index fragmentation compared to sequential integers. However, for our security and multi-tenant isolation requirements, UUIDv4 is optimal. UUIDv7 can be used in future iterations for time-ordered locality."}, {"id": 11, "category": "Celery Workers & Failure Semantics", "question": "Explain the difference between the Job and JobExecution models.", "answer": "Job represents the aggregate entity and its current macro state (e.g., COMPLETED, RETRYING). JobExecution is an immutable 1-to-N audit log that records every single worker execution attempt with timestamps, worker IDs, duration, and tracebacks."}, {"id": 12, "category": "Architecture & Fundamentals", "question": "Why did you separate JobResult into its own table instead of adding a JSONB column inside Job?", "answer": "JobResult stores output payloads of completed tasks, which can be large. By isolating it in a 1:1 table, querying or listing jobs (GET /api/jobs/) only fetches lightweight Job metadata, minimizing disk I/O and memory overhead."}, {"id": 13, "category": "Celery Workers & Failure Semantics", "question": "What are all the states in your job lifecycle state machine?", "answer": "QUEUED, PROCESSING, COMPLETED, FAILED, RETRYING, and CANCELLED."}, {"id": 14, "category": "Architecture & Fundamentals", "question": "Which states in your state machine are terminal?", "answer": "COMPLETED, FAILED, and CANCELLED. Once reached, no further transitions or execution attempts are permitted."}, {"id": 15, "category": "Redis & Distributed Locking", "question": "Explain how a job transitions from QUEUED to PROCESSING.", "answer": "When a Celery worker pops a task from Redis, it checks if the job was cancelled. If not, it acquires a Redis distributed lock, opens an ACID transaction on PostgreSQL, sets status=PROCESSING, stamps started_at, records worker_id, and creates a JobExecution record."}, {"id": 16, "category": "Celery Workers & Failure Semantics", "question": "What happens if a job fails during execution? What state does it enter?", "answer": "If an exception occurs, the worker increments current_retry_count and records the failure in JobExecution. If current_retry_count <= max_retries, Job transitions to RETRYING and is re-queued with exponential backoff delay. If retries are exhausted, it transitions to FAILED."}, {"id": 17, "category": "Redis & Distributed Locking", "question": "What is the Dual-Write problem in the context of job creation?", "answer": "When creating a job, the system must write to PostgreSQL (saving the Job row) and Redis (publishing the task message). If one write succeeds and the other fails, or if timing is uncoordinated, data inconsistency occurs."}, {"id": 18, "category": "Redis & Distributed Locking", "question": "What specific race condition occurs if you call task.apply_async() inside an open Django database transaction?", "answer": "Celery task dispatch over Redis takes < 1ms. If dispatched before the DB transaction commits, a worker pops the message and queries PostgreSQL (Job.objects.get(id=job_id)) before the web server has committed the row, crashing with Job.DoesNotExist."}, {"id": 19, "category": "Celery Workers & Failure Semantics", "question": "How did you resolve this post-commit race condition in your code?", "answer": "By wrapping the Celery task dispatch in Django's transaction.on_commit() hook: with transaction.atomic(): job = serializer.save(); transaction.on_commit(lambda: execute_job_task.apply_async(args=[str(job.id)], queue=queue_name))."}, {"id": 20, "category": "Celery Workers & Failure Semantics", "question": "What happens if the database transaction fails or rolls back? Does the Celery task get dispatched?", "answer": "No. Callbacks registered with transaction.on_commit() are discarded if the transaction rolls back, preventing phantom tasks from being dispatched to Celery."}, {"id": 21, "category": "Redis & Distributed Locking", "question": "What happens if the database commit succeeds, but Redis is down when transaction.on_commit() executes?", "answer": "The on_commit callback raises an exception during task publishing. The HTTP request returns an error to the client, but the job remains in PostgreSQL as QUEUED. A periodic sweeper task queries for stale QUEUED jobs and re-publishes them."}, {"id": 22, "category": "Idempotency & Deduplication", "question": "What is Idempotency and why is it critical in distributed task queues?", "answer": "Idempotency ensures that making the same API request multiple times produces the exact same outcome as making it once. It prevents duplicate job creation when network retries occur."}, {"id": 23, "category": "Idempotency & Deduplication", "question": "How does your system implement API idempotency?", "answer": "The client sends an Idempotency-Key header. The server computes a SHA-256 hash of (user_id + request_path + request_body) and queries IdempotencyKey. If found with a cached response, it returns the cached HTTP 202. If not, it reserves the key in DB and creates the job."}, {"id": 24, "category": "Idempotency & Deduplication", "question": "What happens if an attacker sends an existing Idempotency-Key with a modified payload?", "answer": "The server detects payload tampering by comparing the computed SHA-256 hash with the stored request_hash. If they do not match, it rejects the request with HTTP 422 Unprocessable Entity (code: idempotency_payload_mismatch)."}, {"id": 25, "category": "Idempotency & Deduplication", "question": "What happens if two identical requests with the same Idempotency-Key arrive at the exact same millisecond on two different web pods?", "answer": "Both pods attempt to insert into idempotency_keys. PostgreSQL's UniqueConstraint(fields=['user', 'idempotency_key']) allows only one insert. The second pod catches IntegrityError and returns HTTP 409 Conflict."}, {"id": 26, "category": "Idempotency & Deduplication", "question": "Why do idempotency keys have an expiration time (expires_at)?", "answer": "Storing idempotency keys indefinitely causes unbounded database table growth. Keys expire after 24 hours, after which clients must generate a new key for subsequent operations."}, {"id": 27, "category": "Idempotency & Deduplication", "question": "How are expired idempotency keys cleaned up?", "answer": "The expires_at column is indexed (idx_idemp_expires_at). A periodic background maintenance task deletes records where expires_at <= timezone.now()."}, {"id": 28, "category": "Redis & Distributed Locking", "question": "What is a Distributed Lock, and why is it needed in this project?", "answer": "A distributed lock is a synchronization mechanism guaranteeing mutual exclusion across independent processes/nodes, ensuring that duplicate message deliveries never result in concurrent execution of the same job."}, {"id": 29, "category": "Redis & Distributed Locking", "question": "How is the distributed lock acquired in Redis?", "answer": "Using the atomic command: SET lock:job:<job_id> <unique_token> NX PX <ttl_ms>. NX ensures the key is set only if it does not exist; PX sets an automatic expiration TTL in milliseconds."}, {"id": 30, "category": "Redis & Distributed Locking", "question": "Why is a TTL (Time-To-Live) mandatory when acquiring a distributed lock?", "answer": "If a worker acquires a lock without a TTL and immediately crashes, suffers an OOM kill, or loses power, the lock would remain in Redis forever, causing a permanent deadlock."}, {"id": 31, "category": "Redis & Distributed Locking", "question": "Explain the Lock Release Race Condition and how you solved it.", "answer": "If worker A's lock expires due to a long GC pause, worker B acquires the lock. If worker A resumes and blindly runs DEL, it deletes worker B's active lock! We solved this by generating a unique UUID token per acquisition and releasing via an atomic Lua script that checks token ownership before deleting."}, {"id": 32, "category": "Redis & Distributed Locking", "question": "Why must token verification and deletion be executed as an atomic Lua script rather than two separate Redis commands?", "answer": "If executed as separate GET and DEL commands, a context switch could occur between them during which the lock expires and is acquired by another worker. Lua scripts execute atomically inside Redis."}, {"id": 33, "category": "Celery Workers & Failure Semantics", "question": "What is the Thundering Herd problem in task retries?", "answer": "If a shared service fails, hundreds of tasks fail simultaneously. If they all retry at exact fixed exponential intervals (2s, 4s, 8s), they will hit the recovering service at the exact same second, crashing it again."}, {"id": 34, "category": "Celery Workers & Failure Semantics", "question": "How did you implement Exponential Backoff with Full Jitter?", "answer": "Using: delay = random.uniform(0, min(300, 2^retry_count * base_delay)). Randomizing the delay between 0 and the exponential maximum spreads retry traffic uniformly across the timeline."}, {"id": 35, "category": "Celery Workers & Failure Semantics", "question": "What is the difference between Full Jitter, Equal Jitter, and Decorrelated Jitter?", "answer": "Full Jitter chooses a uniform random value between 0 and 2^n * base. Equal Jitter keeps half the backoff fixed and randomizes the rest. Decorrelated Jitter calculates delay based on previous sleep. Full Jitter provides the best collision reduction for network requests."}, {"id": 36, "category": "Redis & Distributed Locking", "question": "Explain the Pluggable Task Registry Pattern in apps/workers/registry.py.", "answer": "Instead of a monolithic if/elif block checking job types, we created an abstract BaseJobHandler with an execute(job, payload) method. Concrete classes implement this interface and register with JobRegistry, adhering to the Open/Closed Principle."}, {"id": 37, "category": "Architecture & Fundamentals", "question": "What happens if a job is submitted with an unregistered job_type?", "answer": "The serializer validates job_type against JobRegistry.get_supported_types() during request validation, rejecting invalid types with HTTP 400 Bad Request before the job is ever created or queued."}, {"id": 38, "category": "Redis & Distributed Locking", "question": "How does Celery implement priority queues with Redis?", "answer": "Celery creates multiple Redis lists (high_priority, default_priority, low_priority). Workers are configured to inspect queues in priority order: -Q high_priority,default_priority,low_priority."}, {"id": 39, "category": "Redis & Distributed Locking", "question": "How does the Celery worker ensure high-priority tasks are processed before low-priority tasks?", "answer": "The worker issues a blocking pop (BRPOP queue_high queue_default queue_low 0). Redis checks the lists from left to right, always popping elements from queue_high first if any exist."}, {"id": 40, "category": "Redis & Distributed Locking", "question": "What is worker_prefetch_multiplier and why did you set it to 1?", "answer": "By default, Celery prefetches 4 * concurrency tasks from Redis into local worker memory. If a worker prefetches multiple heavy tasks, subsequent fast tasks are blocked in memory while other idle workers have empty queues. Setting prefetch=1 ensures fair 1-by-1 task dispatch."}, {"id": 41, "category": "Celery Workers & Failure Semantics", "question": "What is the difference between acks_late = False and acks_late = True in Celery?", "answer": "With acks_late=False (default), Celery acknowledges the message immediately upon receiving it before execution starts. If the worker crashes, the message is lost. With acks_late=True, the worker acknowledges only after execution completes."}, {"id": 42, "category": "Redis & Distributed Locking", "question": "What does task_reject_on_worker_lost = True do?", "answer": "When combined with acks_late=True, if a worker process is terminated by the OS (SIGKILL, OOM killer), the Celery master process rejects the message and Redis re-delivers it to another available worker."}, {"id": 43, "category": "Redis & Distributed Locking", "question": "Because of acks_late = True, what message delivery guarantee does this system provide?", "answer": "At-Least-Once Delivery. Tasks are guaranteed never to be lost, but under worker crash scenarios, they may be delivered more than once. This makes idempotency and distributed locking mandatory."}, {"id": 44, "category": "Celery Workers & Failure Semantics", "question": "How does Job Cancellation work in this system?", "answer": "When POST /api/jobs/{id}/cancel/ is called: If QUEUED, status is set to CANCELLED in DB and revoked in Celery. If PROCESSING, status is set to CANCELLED in DB and non-terminating revocation is broadcast. If terminal, returns HTTP 400."}, {"id": 45, "category": "Redis & Distributed Locking", "question": "Why did you set terminate=False instead of terminate=True during Celery task revocation?", "answer": "terminate=True forcefully kills worker processes with SIGKILL mid-execution, risking corrupted DB transactions, unreleased locks, and resource leaks. We use cooperative cancellation where handlers inspect status at safe boundaries."}, {"id": 46, "category": "Redis & Distributed Locking", "question": "How does your API Rate Limiting work?", "answer": "Rate limiting is implemented using DRF throttles backed by Redis: AuthenticatedUserRateThrottle (100 req/min general) and JobSubmissionRateThrottle (10 submissions/min). Exceeding limits returns HTTP 429 Too Many Requests."}, {"id": 47, "category": "Auth, Security & Rate Limiting", "question": "How does JWT authentication work in this project?", "answer": "Using djangorestframework-simplejwt, users log in with email/password and receive an Access Token (60 min) and Refresh Token (7 days). The access token is sent as a Bearer header on protected endpoints."}, {"id": 48, "category": "Celery Workers & Failure Semantics", "question": "How is user logout and JWT revocation handled?", "answer": "Since JWTs are stateless, logging out requires blacklisting the refresh token. The client calls POST /api/auth/logout/ with the refresh token, which is inserted into PostgreSQL's token_blacklist table."}, {"id": 49, "category": "PostgreSQL & Database Design", "question": "Explain the composite index idx_jobs_user_status_created on (user_id, status, created_at DESC).", "answer": "When querying user jobs by status ordered by date, PostgreSQL uses this composite index to satisfy both the filter and sorting predicates in a single Index Scan, eliminating in-memory sorting."}, {"id": 50, "category": "PostgreSQL & Database Design", "question": "What would happen if you had 3 separate single-column indexes on user_id, status, and created_at instead of the composite index?", "answer": "PostgreSQL would perform a BitmapAnd index scan across separate indexes, fetch heap pages from disk, and execute an expensive in-memory/disk sort for ORDER BY created_at DESC."}, {"id": 51, "category": "Idempotency & Deduplication", "question": "What metrics does the system export to Prometheus?", "answer": "job_queue_jobs_total (Counter), job_queue_execution_duration_seconds (Histogram), job_queue_active_jobs (Gauge), job_queue_retries_total (Counter), job_queue_idempotency_cache_hits_total (Counter), and job_queue_rate_limit_exceeded_total (Counter)."}, {"id": 52, "category": "Observability & Monitoring", "question": "How does Prometheus scrape metrics from the application?", "answer": "Prometheus issues periodic HTTP GET requests (every 5s) to http://web:8000/metrics. django-prometheus serializes current metric data into the standard Prometheus exposition format."}, {"id": 53, "category": "Observability & Monitoring", "question": "How is Grafana configured in this project?", "answer": "Grafana is auto-provisioned using configuration files in docker/grafana/provisioning/, automatically mounting Prometheus as default datasource and loading job_queue_dashboard.json on startup."}, {"id": 54, "category": "Idempotency & Deduplication", "question": "What key visual panels are on the Grafana dashboard?", "answer": "Single-stat gauges for Total Jobs, Active In-Flight Workers, Total Retries, and Idempotency Hits; Time-series graph for Job Throughput by Status; and 95th Percentile Execution Duration histogram chart."}, {"id": 55, "category": "Redis & Distributed Locking", "question": "What does the /api/monitoring/health/ endpoint check?", "answer": "It performs active connectivity checks on PostgreSQL (SELECT 1;) and Redis (redis_client.ping()), aggregates active job counts across statuses, and returns HTTP 200 OK (or HTTP 503 if unhealthy)."}, {"id": 56, "category": "Redis & Distributed Locking", "question": "What Docker services are defined in docker-compose.yml?", "answer": "6 services: postgres (PostgreSQL 15), redis (Redis 7), web (Django API), celery_worker (Celery worker pool), prometheus (Prometheus engine), and grafana (Grafana dashboard)."}, {"id": 57, "category": "Redis & Distributed Locking", "question": "Why are container healthchecks defined for PostgreSQL and Redis in docker-compose.yml?", "answer": "To prevent startup race conditions. The web and worker services specify depends_on with condition: service_healthy, delaying startup until PostgreSQL and Redis pass socket healthchecks."}, {"id": 58, "category": "Celery Workers & Failure Semantics", "question": "What do the entrypoint scripts docker/entrypoints/api.sh and worker.sh do?", "answer": "They execute network socket polling loops (nc -z) to verify dependencies, run database migrations (python manage.py migrate), and start the application/worker processes."}, {"id": 59, "category": "Testing & Load Simulation", "question": "How is the Django settings architecture structured?", "answer": "Using a split settings pattern in config/settings/: base.py (shared settings), local.py (dev overrides/logging), production.py (SSL/HSTS, JSON logging), and test.py (in-memory SQLite/cache for fast testing)."}, {"id": 60, "category": "Idempotency & Deduplication", "question": "How did you test the codebase?", "answer": "Using pytest and pytest-django. We wrote 18 automated unit and integration tests covering auth, token blacklisting, job creation, multi-tenant isolation, cancellation, idempotency, tampering, worker execution, and retries."}, {"id": 61, "category": "Idempotency & Deduplication", "question": "How does tests/load_testing/locustfile.py perform load testing?", "answer": "It simulates realistic user traffic with weighted task distribution: 50% job submissions with idempotency keys, 30% status polling, 20% filtered listing, and 10% duplicate idempotency cache hit tests."}, {"id": 62, "category": "Redis & Distributed Locking", "question": "How would you deploy this project to AWS in production?", "answer": "API and workers on AWS ECS Fargate across private subnets; database on AWS RDS PostgreSQL Multi-AZ with RDS Proxy; broker on AWS ElastiCache for Redis Multi-AZ; and traffic routed via AWS Application Load Balancer (ALB)."}, {"id": 63, "category": "Redis & Distributed Locking", "question": "How should Celery workers be auto-scaled in production on AWS?", "answer": "Workers should auto-scale based on Redis Queue Depth (LLEN across queues) emitted as a custom CloudWatch metric rather than CPU utilization alone, scaling out when queue depth exceeds a target threshold."}, {"id": 64, "category": "Celery Workers & Failure Semantics", "question": "In execute_job_task, why do you pass job_id (a string) rather than the serialized Job model instance?", "answer": "Passing model instances into task arguments can result in stale data when the worker executes. Passing primitive job_id ensures the worker fetches the freshest committed state directly from PostgreSQL."}, {"id": 65, "category": "Celery Workers & Failure Semantics", "question": "What if the job is deleted from PostgreSQL between when it was queued and when the worker pops it?", "answer": "The database lookup is wrapped in try...except Job.DoesNotExist. If missing, the worker logs an error and returns {'status': 'dropped', 'reason': 'job_not_found'} without crashing."}, {"id": 66, "category": "Redis & Distributed Locking", "question": "What if a user cancels a job while it is waiting in the Redis queue?", "answer": "When the worker pops the task, it immediately checks if job.status == JobStatus.CANCELLED. If so, it returns {'status': 'skipped', 'reason': 'job_cancelled'} without executing or acquiring locks."}, {"id": 67, "category": "Redis & Distributed Locking", "question": "In apps/workers/tasks.py, why do you refresh the job instance using job.refresh_from_db() inside transaction.atomic()?", "answer": "Between when the worker fetched the job and acquired the Redis lock, another process (like an API cancellation) might have updated the database row. refresh_from_db() ensures the worker inspects the latest committed state."}, {"id": 68, "category": "Redis & Distributed Locking", "question": "What happens if a Celery task crashes due to a MemoryError or Python segfault?", "answer": "The worker process dies immediately. Because task_reject_on_worker_lost=True and task_acks_late=True are set, the Celery master rejects the task and Redis re-delivers it to another worker."}, {"id": 69, "category": "Celery Workers & Failure Semantics", "question": "If a task crashed because of a poisonous payload, won't it cause an infinite crash loop across all workers?", "answer": "PostgreSQL tracks current_retry_count. When the next worker picks it up, it sees current_retry_count >= max_retries, marks the job FAILED, and drops the task. Broker-level Dead-Letter Queues (DLQ) handle un-tracked segfaults."}, {"id": 70, "category": "Redis & Distributed Locking", "question": "In apps/workers/locking.py, why did you implement RedisDistributedLock as a Context Manager?", "answer": "Implementing __enter__ and __exit__ ensures the distributed lock is deterministically released even if unhandled exceptions or runtime errors occur inside the execution block."}, {"id": 71, "category": "Redis & Distributed Locking", "question": "What happens if the Redis server crashes while a worker is holding a lock?", "answer": "The worker continues executing. When releasing in finally, Redis operations fail gracefully with a logged warning. When Redis restarts, the in-memory lock will be cleared, preventing permanent deadlocks."}, {"id": 72, "category": "Idempotency & Deduplication", "question": "In apps/jobs/idempotency.py, why do you serialize the JSON payload with json.dumps(data, sort_keys=True) before hashing?", "answer": "JSON dictionary keys are unordered. Without sort_keys=True, {'a': 1, 'b': 2} and {'b': 2, 'a': 1} would produce different SHA-256 hashes. sort_keys=True ensures deterministic hashing."}, {"id": 73, "category": "Idempotency & Deduplication", "question": "Why did you include user_id inside the SHA-256 idempotency signature?", "answer": "To ensure multi-tenant isolation. If User A and User B coincidentally submit identical payloads with the same idempotency key string, their hashes and database records remain strictly isolated."}, {"id": 74, "category": "Redis & Distributed Locking", "question": "In apps/jobs/views.py, why does JobViewSet override get_queryset instead of using a global filter?", "answer": "Overriding get_queryset() enforces row-level security at the ORM level. Regular users only evaluate Job.objects.filter(user=self.request.user), guaranteeing that guessing another user's UUID returns HTTP 404."}, {"id": 75, "category": "Celery Workers & Failure Semantics", "question": "Why does get_queryset use select_related('result') and prefetch_related('executions')?", "answer": "To eliminate the N+1 Query Problem. Without them, serializing 20 jobs with results and execution logs would execute 41 SQL queries. With them, Django executes exactly 2 optimized queries."}, {"id": 76, "category": "Celery Workers & Failure Semantics", "question": "What is the HTTP status code returned upon successful job creation and why?", "answer": "HTTP 202 Accepted. It is the RFC-compliant status code indicating that the request has been accepted for processing, but asynchronous background execution has not yet completed."}, {"id": 77, "category": "Idempotency & Deduplication", "question": "What HTTP status code is returned when a duplicate idempotency key is submitted with an identical payload?", "answer": "HTTP 202 Accepted, accompanied by custom header X-Cache-Lookup: HIT-Idempotency and the original cached response payload."}, {"id": 78, "category": "Auth, Security & Rate Limiting", "question": "In apps/users/permissions.py, why do you have both has_permission and has_object_permission?", "answer": "has_permission runs on all requests before view execution (checking authentication). has_object_permission runs when retrieving/updating a specific instance (/api/jobs/{id}/), checking if obj.user == request.user."}, {"id": 79, "category": "Auth, Security & Rate Limiting", "question": "How does SimpleJWT validate an access token on incoming requests?", "answer": "It verifies the cryptographic HMAC-SHA256 signature using the server's SECRET_KEY, checks that the exp timestamp is in the future, and decodes the user_id payload to populate request.user."}, {"id": 80, "category": "PostgreSQL & Database Design", "question": "Does DRF SimpleJWT query PostgreSQL on every single API request to validate an access token?", "answer": "No. JWT verification is stateless in memory. It only queries PostgreSQL if the view explicitly accesses request.user database attributes."}, {"id": 81, "category": "Architecture & Fundamentals", "question": "In apps/users/serializers.py, what does validate_password(attrs['password']) do?", "answer": "It runs Django's configured password validators (length, common passwords, numeric checks), rejecting weak passwords during registration."}, {"id": 82, "category": "Celery Workers & Failure Semantics", "question": "In apps/jobs/serializers.py, what validation is performed on max_retries?", "answer": "It enforces min_value=0 and max_value=10 with a default of 3, preventing malicious clients from setting unreasonably high retry counts that would overload workers."}, {"id": 83, "category": "Idempotency & Deduplication", "question": "How do you prevent Django from loading full database models into memory during tests?", "answer": "In config/settings/test.py, we configure in-memory SQLite (:memory:) and set PASSWORD_HASHERS to MD5PasswordHasher to make user creation tests run 10x faster."}, {"id": 84, "category": "Redis & Distributed Locking", "question": "In config/celery.py, why do you set task_serializer = 'json' and accept_content = ['json']?", "answer": "For security. Older Celery setups defaulted to Python's pickle serializer, which allows arbitrary code execution if an attacker injects messages into Redis. JSON serialization is safe."}, {"id": 85, "category": "Celery Workers & Failure Semantics", "question": "What is the difference between Celery's soft_time_limit and time_limit?", "answer": "soft_time_limit (28m) raises SoftTimeLimitExceeded inside the task, allowing graceful cleanup. time_limit (30m) forcefully terminates the worker process with SIGKILL."}, {"id": 86, "category": "Architecture & Fundamentals", "question": "How does django-filter handle filtering in apps/jobs/filters.py?", "answer": "JobFilter maps URL query parameters (?status=completed&priority=high) to ORM lookups with lookup_expr='iexact' for case-insensitivity and created_after/before for date ranges."}, {"id": 87, "category": "Redis & Distributed Locking", "question": "In docker-compose.yml, what is the purpose of redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction?", "answer": "--appendonly yes enables AOF persistence so queues survive restarts; --maxmemory 256mb prevents memory exhaustion; and --maxmemory-policy noeviction prevents silent dropping of queue messages."}, {"id": 88, "category": "Celery Workers & Failure Semantics", "question": "What is the difference between Gunicorn and Uvicorn in production deployment?", "answer": "Gunicorn is a WSGI HTTP process manager for synchronous workers. Uvicorn is an ASGI server for asynchronous Python. In production, Gunicorn acts as process manager running Uvicorn worker classes."}, {"id": 89, "category": "Celery Workers & Failure Semantics", "question": "In apps/monitoring/metrics.py, why is job_queue_execution_duration_seconds a Histogram rather than a Summary?", "answer": "Histograms allow Prometheus to calculate percentile aggregations (like p95 and p99 latencies) across multiple worker instances using histogram_quantile(). Summaries cannot be aggregated across instances."}, {"id": 90, "category": "Observability & Monitoring", "question": "What PromQL query computes the 95th percentile job execution duration on Grafana?", "answer": "histogram_quantile(0.95, sum by (le, job_type) (rate(job_queue_execution_duration_seconds_bucket[5m])))"}, {"id": 91, "category": "Architecture & Fundamentals", "question": "What PromQL query computes job throughput in jobs per minute by status?", "answer": "sum by (status) (rate(job_queue_jobs_total[1m])) * 60"}, {"id": 92, "category": "Architecture & Fundamentals", "question": "What is the purpose of drf-spectacular in this project?", "answer": "It inspects viewsets, serializers, and @extend_schema decorators to generate an OpenAPI 3.0 schema (/api/schema/) powering Swagger UI (/api/docs/) and ReDoc (/api/redoc/)."}, {"id": 93, "category": "PostgreSQL & Database Design", "question": "How are database migrations executed automatically in Docker?", "answer": "The API entrypoint script docker/entrypoints/api.sh runs python manage.py migrate --noinput on startup after verifying PostgreSQL availability."}, {"id": 94, "category": "Architecture & Fundamentals", "question": "Why do you use CONN_MAX_AGE = 60 in database settings?", "answer": "It maintains persistent database connections for 60 seconds across requests, eliminating TCP connection setup overhead on every request and reducing database CPU usage."}, {"id": 95, "category": "Redis & Distributed Locking", "question": "In apps/workers/locking.py, what happens if connection_alias fails to connect to Redis during testing?", "answer": "The constructor catches the exception, sets self.redis_client = None, and acquire()/release() methods return True, allowing unit tests to run without active Redis instances."}, {"id": 96, "category": "Celery Workers & Failure Semantics", "question": "What is the difference between apply_async and delay in Celery?", "answer": "delay() only accepts positional and keyword arguments. apply_async() supports execution options like queue, countdown, eta, and expires."}, {"id": 97, "category": "Celery Workers & Failure Semantics", "question": "How do you prevent a slow worker from starving fast tasks in Celery?", "answer": "By setting worker_prefetch_multiplier = 1, disabling batching, and routing heavy tasks to dedicated worker queues."}, {"id": 98, "category": "Redis & Distributed Locking", "question": "What exact data structure is used by Redis to store Celery task messages?", "answer": "Redis Lists (using LPUSH and BRPOP). Tasks scheduled with a countdown or eta are stored in a Redis Sorted Set (ZSET) ordered by epoch timestamp."}, {"id": 99, "category": "Redis & Distributed Locking", "question": "How does Celery Beat manage scheduled recurring tasks?", "answer": "Celery Beat reads schedule definitions, tracks elapsed intervals, and pushes task execution messages into the Redis queue when the scheduled timestamp arrives."}, {"id": 100, "category": "Idempotency & Deduplication", "question": "In tests/test_idempotency.py, how do you verify duplicate submissions don't create extra rows?", "answer": "We submit the initial request, check Job.objects.count(), submit the second request with the same Idempotency-Key, and assert Job count remains 1 and response header is HIT-Idempotency."}, {"id": 101, "category": "PostgreSQL & Database Design", "question": "In apps/users/models.py, what does UserManager.normalize_email() do?", "answer": "It lowercases the domain portion of email addresses (User@EXAMPLE.com -> User@example.com) to ensure consistent uniqueness lookups."}, {"id": 102, "category": "PostgreSQL & Database Design", "question": "Why is REQUIRED_FIELDS = [] set in your custom User model?", "answer": "REQUIRED_FIELDS defines prompts for createsuperuser aside from USERNAME_FIELD (email) and password. Since email and password are the only required fields, the list is empty."}, {"id": 103, "category": "PostgreSQL & Database Design", "question": "In apps/jobs/models.py, why is status defined with models.TextChoices instead of integers?", "answer": "TextChoices stores human-readable strings directly in PostgreSQL, making raw SQL queries, logs, and Prometheus metrics self-documenting without lookup tables."}, {"id": 104, "category": "PostgreSQL & Database Design", "question": "What is the storage difference between PostgreSQL JSON and JSONB data types?", "answer": "JSON stores exact plain text requiring re-parsing on every read. JSONB stores decomposed binary format supporting GIN indexing, fast lookups, and JSON path operators."}, {"id": 105, "category": "PostgreSQL & Database Design", "question": "How does Django handle database migrations for composite indexes?", "answer": "In 0001_initial.py, Django executes AddIndex specifying models.Index(fields=['user', 'status', '-created_at']), translating to SQL: CREATE INDEX idx_jobs_user_status_created ON jobs (user_id, status, created_at DESC);."}, {"id": 106, "category": "Celery Workers & Failure Semantics", "question": "In apps/workers/registry.py, how does SendEmailHandler simulate task execution?", "answer": "It extracts recipient and subject, verifies recipient presence, sleeps 0.5s to simulate SMTP latency, logs the delivery, and returns a dictionary with byte count and status."}, {"id": 107, "category": "Docker & Cloud Deployment", "question": "How does GenerateReportHandler simulate heavy report generation?", "answer": "It verifies customer_id, simulates aggregation computation via sleep(1.0), and returns a dictionary containing a mock AWS S3 PDF URL and record count."}, {"id": 108, "category": "Celery Workers & Failure Semantics", "question": "How does SimulateLongTaskHandler test retry behavior?", "answer": "If payload contains 'simulate_failure': true, it raises a RuntimeError, triggering Celery's retry mechanism and incrementing current_retry_count."}, {"id": 109, "category": "Celery Workers & Failure Semantics", "question": "In apps/workers/tasks.py, how is worker_node_id generated?", "answer": "Using f'worker-{socket.gethostname()}-{self.request.id[:8]}', giving each execution attempt a unique traceable identifier across container clusters."}, {"id": 110, "category": "Celery Workers & Failure Semantics", "question": "What happens if a job has max_retries = 0 and its task handler raises an exception?", "answer": "The worker increments current_retry_count to 1. Since 1 > max_retries, it immediately marks the job FAILED, stamps failed_at, updates JobExecution, and schedules no retries."}, {"id": 111, "category": "Architecture & Fundamentals", "question": "What is the purpose of JobRegistry.get_supported_types()?", "answer": "It dynamically returns all registered string keys in _handlers (['send_email', 'generate_report', ...]), which serializers use to validate incoming job creation requests."}, {"id": 112, "category": "Architecture & Fundamentals", "question": "In apps/jobs/serializers.py, why is JobDetailSerializer separate from JobListSerializer?", "answer": "JobListSerializer returns only essential list columns. JobDetailSerializer includes nested result and executions relations, avoiding serialization overhead on list endpoints."}, {"id": 113, "category": "Redis & Distributed Locking", "question": "In apps/jobs/throttling.py, how does UserRateThrottle identify users?", "answer": "For authenticated requests, it uses request.user.pk as cache key (throttle_user_<pk>). For unauthenticated requests, it falls back to client IP address."}, {"id": 114, "category": "Redis & Distributed Locking", "question": "What happens when a rate limit is exceeded in DRF?", "answer": "The throttle raises exceptions.Throttled(wait), which DRF renders as HTTP 429 Too Many Requests with a Retry-After header."}, {"id": 115, "category": "Auth, Security & Rate Limiting", "question": "In apps/users/views.py, why does RegisterView set permission_classes = [AllowAny]?", "answer": "Because new users registering an account are unauthenticated and do not possess a JWT token yet."}, {"id": 116, "category": "Architecture & Fundamentals", "question": "What is the difference between SpectacularAPIView, SpectacularSwaggerView, and SpectacularRedocView?", "answer": "SpectacularAPIView outputs the raw OpenAPI schema (/api/schema/). SpectacularSwaggerView renders interactive Swagger UI (/api/docs/). SpectacularRedocView renders ReDoc (/api/redoc/)."}, {"id": 117, "category": "Celery Workers & Failure Semantics", "question": "In docker/prometheus/prometheus.yml, what targets are configured?", "answer": "Two scrape targets: django-api targeting web:8000 and celery-workers targeting web:8000, scraped every 5 seconds."}, {"id": 118, "category": "Redis & Distributed Locking", "question": "In docker-compose.yml, what is the purpose of named volumes?", "answer": "Named volumes (postgres_data, redis_data, etc.) map container directories to host storage, ensuring databases and dashboards persist across container rebuilds."}, {"id": 119, "category": "Redis & Distributed Locking", "question": "In tests/test_worker_execution.py, why do we mock RedisDistributedLock acquire and release?", "answer": "To test state transitions, backoff calculations, and database logging in isolated unit tests without requiring a running Redis instance."}, {"id": 120, "category": "Celery Workers & Failure Semantics", "question": "In tests/test_worker_execution.py, what does @patch('workers.tasks.execute_job_task.apply_async') verify?", "answer": "It verifies that when a task fails with retries remaining, apply_async is called once with incremented attempt number and positive countdown delay."}, {"id": 121, "category": "Architecture & Fundamentals", "question": "In config/settings/production.py, what does SECURE_SSL_REDIRECT = True do?", "answer": "It redirects all unencrypted HTTP requests to HTTPS via Django's SecurityMiddleware."}, {"id": 122, "category": "Architecture & Fundamentals", "question": "What does SECURE_HSTS_SECONDS = 31536000 do?", "answer": "It sets the Strict-Transport-Security header, instructing browsers to strictly use HTTPS for the next 1 year."}, {"id": 123, "category": "Architecture & Fundamentals", "question": "What does SECURE_CONTENT_TYPE_NOSNIFF = True do?", "answer": "It sets X-Content-Type-Options: nosniff, preventing browsers from MIME-sniffing responses away from declared Content-Types."}, {"id": 124, "category": "Redis & Distributed Locking", "question": "In config/settings/base.py, what is CORS_ALLOW_ALL_ORIGINS?", "answer": "In local.py, it is set to True to allow frontend apps on different ports (e.g. React on 3000) to communicate with API on 8000 without CORS blocking."}, {"id": 125, "category": "Redis & Distributed Locking", "question": "What is the difference between CELERY_TASK_ALWAYS_EAGER = True and regular asynchronous Celery?", "answer": "CELERY_TASK_ALWAYS_EAGER=True runs tasks synchronously in the local thread immediately, bypassing Redis so unit tests can evaluate task results instantly."}, {"id": 126, "category": "Celery Workers & Failure Semantics", "question": "What does CELERY_TASK_EAGER_PROPAGATES = True do?", "answer": "When eager mode is active, it ensures any exceptions raised inside the task propagate to the test caller."}, {"id": 127, "category": "PostgreSQL & Database Design", "question": "In manage.py, why is sys.path.append(str(base_dir / 'apps')) added?", "answer": "To allow clean imports like from users.models import User without prefixing every import with apps.."}, {"id": 128, "category": "Architecture & Fundamentals", "question": "How does django.utils.timezone.now differ from datetime.datetime.now()?", "answer": "timezone.now() is timezone-aware and respects TIME_ZONE = 'UTC', preventing timezone offset bugs across distributed servers."}, {"id": 129, "category": "PostgreSQL & Database Design", "question": "What is the purpose of Job.is_terminal property in apps/jobs/models.py?", "answer": "It is a boolean helper returning True if status in {COMPLETED, FAILED, CANCELLED}, guarding against invalid state modifications."}, {"id": 130, "category": "Architecture & Fundamentals", "question": "In apps/jobs/views.py, how does cancel() handle an already COMPLETED job?", "answer": "It returns HTTP 400 Bad Request stating the job is already in a terminal state."}, {"id": 131, "category": "Observability & Monitoring", "question": "What is the role of PrometheusBeforeMiddleware and PrometheusAfterMiddleware?", "answer": "BeforeMiddleware records request start time. AfterMiddleware calculates latency and increments request counters by status code for /metrics."}, {"id": 132, "category": "Auth, Security & Rate Limiting", "question": "Why must PrometheusBeforeMiddleware be the very first middleware and AfterMiddleware the last?", "answer": "To accurately measure the full execution duration of all intermediate middleware (Authentication, CSRF, Routing)."}, {"id": 133, "category": "Celery Workers & Failure Semantics", "question": "What is the purpose of tests/__init__.py?", "answer": "It marks the tests directory as a Python package so test modules can share fixtures and imports cleanly."}, {"id": 134, "category": "Testing & Load Simulation", "question": "In pytest.ini, what does --reuse-db do?", "answer": "It instructs pytest-django to reuse the test database across runs instead of dropping and recreating it every time, speeding up test execution."}, {"id": 135, "category": "PostgreSQL & Database Design", "question": "In requirements/base.txt, why is psycopg2-binary included?", "answer": "It is the PostgreSQL database adapter for Python, enabling Django ORM to communicate with PostgreSQL over TCP."}, {"id": 136, "category": "Testing & Load Simulation", "question": "What is the difference between requirements base.txt, local.txt, and production.txt?", "answer": "base.txt contains core runtime dependencies; local.txt adds testing/linting tools; production.txt adds production servers (Gunicorn) and Sentry."}, {"id": 137, "category": "PostgreSQL & Database Design", "question": "How does the API entrypoint script ensure PostgreSQL is ready?", "answer": "It runs a while ! nc -z $POSTGRES_HOST $POSTGRES_PORT; do sleep 0.5; done loop probing the TCP socket until PostgreSQL accepts connections."}, {"id": 138, "category": "Celery Workers & Failure Semantics", "question": "In docker/entrypoints/worker.sh, what does -n worker@%h do?", "answer": "It assigns a unique node name to the Celery worker process using the container hostname (%h)."}, {"id": 139, "category": "Celery Workers & Failure Semantics", "question": "In docker/entrypoints/worker.sh, what does --concurrency=4 do?", "answer": "It instructs Celery to spawn 4 child worker processes, allowing the container to process 4 tasks concurrently."}, {"id": 140, "category": "Redis & Distributed Locking", "question": "How does Celery handle task execution across multiple worker processes?", "answer": "The master Celery process listens on Redis and delegates task messages to child worker processes using an OS IPC pipe."}, {"id": 141, "category": "Celery Workers & Failure Semantics", "question": "What is the difference between Celery's prefork, gevent, and threads execution models?", "answer": "prefork uses multiprocessing for CPU-bound tasks; gevent uses greenlets for massive concurrent I/O; threads uses OS threads."}, {"id": 142, "category": "Celery Workers & Failure Semantics", "question": "What pool execution model is used in this project?", "answer": "prefork (multiprocessing), providing strong memory isolation between worker tasks."}, {"id": 143, "category": "PostgreSQL & Database Design", "question": "In apps/jobs/models.py, what does auto_now=True on updated_at do?", "answer": "It automatically updates the field to the current timestamp whenever job.save() is called."}, {"id": 144, "category": "PostgreSQL & Database Design", "question": "In apps/jobs/models.py, what does auto_now_add=True on created_at do?", "answer": "It sets the field to the current timestamp only once when the instance is first created in the database."}, {"id": 145, "category": "Celery Workers & Failure Semantics", "question": "Why did you use default=timezone.now instead of auto_now_add=True on Job.created_at?", "answer": "default=timezone.now allows the field to be manually overridden in test fixtures or backfills, whereas auto_now_add=True forcefully overwrites passed values."}, {"id": 146, "category": "PostgreSQL & Database Design", "question": "In apps/users/models.py, why is email marked with db_index=True and unique=True?", "answer": "unique=True creates a unique B-tree index guaranteeing uniqueness and optimizing authentication queries to O(log N) time."}, {"id": 147, "category": "PostgreSQL & Database Design", "question": "What does AUTH_USER_MODEL = 'users.User' tell Django?", "answer": "It instructs Django to replace its default auth.User model with our custom users.User model across all foreign keys and admin interfaces."}, {"id": 148, "category": "Auth, Security & Rate Limiting", "question": "In apps/users/serializers.py, what does RefreshToken.for_user(user) do?", "answer": "It generates a signed JWT Refresh Token containing user_id and jti claims, and derives an Access Token from it."}, {"id": 149, "category": "Celery Workers & Failure Semantics", "question": "What is a jti claim in a JWT?", "answer": "JWT ID \u2014 a unique UUID string assigned to each individual token used by the token blacklist to track and revoke specific tokens."}, {"id": 150, "category": "Architecture & Fundamentals", "question": "In apps/jobs/serializers.py, why is status a read-only field in JobCreateSerializer?", "answer": "Clients must not dictate initial status; the server strictly enforces the initial state as QUEUED."}, {"id": 151, "category": "PostgreSQL & Database Design", "question": "In apps/jobs/serializers.py, why is id a read-only field in JobCreateSerializer?", "answer": "The primary key UUID is generated by the server upon creation, preventing clients from dictating arbitrary primary keys."}, {"id": 152, "category": "Architecture & Fundamentals", "question": "In apps/jobs/serializers.py, what does ChoiceField(choices=JobPriority.choices) enforce?", "answer": "It ensures the API accepts only valid priorities ('low', 'medium', 'high'), returning HTTP 400 for invalid strings."}, {"id": 153, "category": "Celery Workers & Failure Semantics", "question": "What is the purpose of apps/workers/apps.py?", "answer": "It defines WorkersConfig(AppConfig), enabling Django to discover Celery tasks and signals inside the workers module."}, {"id": 154, "category": "Celery Workers & Failure Semantics", "question": "What is the purpose of config/__init__.py containing from .celery import app as celery_app?", "answer": "It ensures the Celery app instance is loaded whenever Django starts so @shared_task decorators bind correctly."}, {"id": 155, "category": "Idempotency & Deduplication", "question": "In apps/jobs/idempotency.py, what does response['X-Cache-Lookup'] = 'HIT-Idempotency' do?", "answer": "It injects an HTTP header informing clients that the response was served directly from the idempotency cache without re-executing task creation."}, {"id": 156, "category": "Idempotency & Deduplication", "question": "In apps/jobs/idempotency.py, what does response['X-Cache-Lookup'] = 'MISS-Idempotency-Saved' do?", "answer": "It indicates that this was the first time the request was processed and its response was cached for future retries."}, {"id": 157, "category": "Idempotency & Deduplication", "question": "What is the time complexity of looking up an idempotency key in PostgreSQL?", "answer": "O(log N) where N is row count, because (user_id, idempotency_key) is backed by a PostgreSQL B-tree index."}, {"id": 158, "category": "Redis & Distributed Locking", "question": "In apps/workers/locking.py, what is the time complexity of acquiring a lock in Redis?", "answer": "O(1) constant time, because Redis performs hash table key lookups and inserts in memory."}, {"id": 159, "category": "Redis & Distributed Locking", "question": "In apps/workers/locking.py, what is the time complexity of releasing a lock via Lua script?", "answer": "O(1) constant time for single-key evaluation."}, {"id": 160, "category": "Auth, Security & Rate Limiting", "question": "How does your test suite test multi-tenant isolation?", "answer": "User A creates a job. User B authenticates and attempts GET /api/jobs/{id}/ and POST cancel. The test asserts response status is 404 Not Found for both."}, {"id": 161, "category": "Architecture & Fundamentals", "question": "Why does User B get 404 Not Found instead of 403 Forbidden when accessing User A's job?", "answer": "Returning 403 confirms the resource ID exists. Returning 404 hides resource existence entirely, preventing ID enumeration."}, {"id": 162, "category": "Testing & Load Simulation", "question": "How does test_job_cancellation_terminal_state_fails verify terminal state protection?", "answer": "It sets job status to COMPLETED, calls cancel, and asserts status is 400 with an error stating the job is already terminal."}, {"id": 163, "category": "Auth, Security & Rate Limiting", "question": "In tests/test_auth.py, how do you test token refresh rotation?", "answer": "The test logs in, receives a refresh token, calls POST /api/auth/refresh/, and asserts status is 200 with a new access token."}, {"id": 164, "category": "Celery Workers & Failure Semantics", "question": "In tests/test_auth.py, how do you test token blacklisting?", "answer": "The test logs out with the refresh token (blacklisting it), then immediately calls /api/auth/refresh/ with the same token, asserting status is 401 Unauthorized."}, {"id": 165, "category": "Celery Workers & Failure Semantics", "question": "What happens if a Celery worker encounters an unhandled Python exception?", "answer": "Celery catches the exception, logs a traceback, marks the backend result as FAILURE, and triggers failure handlers. In our code, we explicitly catch Exception to update PostgreSQL."}, {"id": 166, "category": "Celery Workers & Failure Semantics", "question": "In apps/workers/tasks.py, why do you truncate error_traceback to 500 characters in job.error_message?", "answer": "job.error_message is for quick dashboard summaries. The full untruncated traceback is preserved in JobExecution.error_traceback."}, {"id": 167, "category": "Celery Workers & Failure Semantics", "question": "How would you handle database connection pooling in high-concurrency production on AWS?", "answer": "Use AWS RDS Proxy or PgBouncer in front of PostgreSQL to pool and multiplex 500 worker connections into 20-30 shared database connections."}, {"id": 168, "category": "Redis & Distributed Locking", "question": "What is the difference between Horizontal and Vertical Scaling for this system?", "answer": "Vertical Scaling adds CPU/RAM to single Postgres/Redis servers. Horizontal Scaling adds more stateless Django API replicas and more Celery worker containers."}, {"id": 169, "category": "Redis & Distributed Locking", "question": "Can Redis become a single point of failure (SPOF) in this architecture?", "answer": "In production on AWS, we use AWS ElastiCache for Redis in Multi-AZ configuration with Automatic Failover, promoting a replica in < 30s if primary fails."}, {"id": 170, "category": "PostgreSQL & Database Design", "question": "Can PostgreSQL become a single point of failure?", "answer": "In production, we deploy AWS RDS PostgreSQL Multi-AZ with synchronous physical replication maintaining a hot standby in another AZ."}, {"id": 171, "category": "Observability & Monitoring", "question": "What is the difference between synchronous and asynchronous database replication?", "answer": "Synchronous writes to primary and standby before confirming commit (zero data loss, higher latency). Asynchronous confirms primary first, then syncs (lower latency, minimal data loss risk on sudden crash)."}, {"id": 172, "category": "Redis & Distributed Locking", "question": "What is a Dead-Letter Queue (DLQ)?", "answer": "A secondary queue where messages that repeatedly fail after maximum retries are moved for manual inspection, preventing poison pills from blocking healthy queues."}, {"id": 173, "category": "Redis & Distributed Locking", "question": "How would you migrate this architecture from Redis to RabbitMQ?", "answer": "Change CELERY_BROKER_URL to amqp://user:pass@rabbitmq:5672/. Kombu handles AMQP protocol natively, providing native AMQP priority queues."}, {"id": 174, "category": "Redis & Distributed Locking", "question": "Why is Redis better than Kafka for simple priority task queues?", "answer": "Kafka is an append-only log optimized for sequential streaming; it does not support arbitrary priority reordering. Redis lists/ZSETs allow true dynamic priority popping."}, {"id": 175, "category": "Celery Workers & Failure Semantics", "question": "What is the difference between CPU-bound and I/O-bound tasks in our worker pool?", "answer": "I/O-bound tasks spend time waiting on network/disk (benefits from high concurrency threads). CPU-bound tasks saturate CPU cores (requires multiprocessing bounded by physical cores)."}, {"id": 176, "category": "PostgreSQL & Database Design", "question": "In apps/jobs/models.py, why does JobResult use models.OneToOneField?", "answer": "OneToOneField creates a UNIQUE constraint on job_id, mathematically enforcing that a job can produce at most one final result record."}, {"id": 177, "category": "Idempotency & Deduplication", "question": "In apps/jobs/models.py, what does on_delete=models.CASCADE on Job.user do?", "answer": "If a user is deleted, all associated Job, JobResult, JobExecution, and IdempotencyKey records owned by that user are automatically deleted by PostgreSQL."}, {"id": 178, "category": "Idempotency & Deduplication", "question": "What does on_delete=models.SET_NULL on IdempotencyKey.job do?", "answer": "If a Job is deleted, the referencing IdempotencyKey row is retained for audit, but its job_id foreign key is set to NULL."}, {"id": 179, "category": "PostgreSQL & Database Design", "question": "In apps/users/models.py, what does is_staff vs is_superuser mean?", "answer": "is_staff controls access to Django Admin (/admin/). is_superuser grants all model permissions implicitly without specific group assignment."}, {"id": 180, "category": "Architecture & Fundamentals", "question": "In config/urls.py, what does path('admin/', admin.site.urls) do?", "answer": "It mounts Django's built-in administrative management portal at /admin/."}, {"id": 181, "category": "Architecture & Fundamentals", "question": "In apps/jobs/admin.py, what is JobExecutionInline?", "answer": "A TabularInline class rendering the complete history of JobExecution attempt rows directly inside the parent Job admin page."}, {"id": 182, "category": "Idempotency & Deduplication", "question": "In apps/jobs/admin.py, why are fields in JobExecutionInline marked readonly?", "answer": "Execution logs are immutable historical audit records; administrators must not tamper with execution durations or tracebacks."}, {"id": 183, "category": "Architecture & Fundamentals", "question": "In apps/jobs/admin.py, why is can_delete = False set on inlines?", "answer": "To prevent administrators from accidentally deleting individual audit execution attempts from the admin UI."}, {"id": 184, "category": "PostgreSQL & Database Design", "question": "In apps/monitoring/views.py, how does HealthCheckView check database health?", "answer": "It executes cursor.execute('SELECT 1;'). If PostgreSQL answers, it returns 1 and sets status: healthy. If an exception occurs, it returns HTTP 503."}, {"id": 185, "category": "Redis & Distributed Locking", "question": "In apps/monitoring/views.py, how does HealthCheckView check Redis health?", "answer": "It runs django_redis.get_redis_connection('default').ping(). Redis returns PONG (True) on success."}, {"id": 186, "category": "PostgreSQL & Database Design", "question": "In apps/monitoring/views.py, what metrics are returned in the health check JSON?", "answer": "Real-time counts of queued_jobs, processing_jobs, failed_jobs, and completed_jobs queried from PostgreSQL."}, {"id": 187, "category": "Docker & Cloud Deployment", "question": "In docker-compose.yml, what does restart: unless-stopped do?", "answer": "It instructs Docker to restart containers automatically if they crash or host reboots, unless explicitly stopped by an administrator."}, {"id": 188, "category": "Docker & Cloud Deployment", "question": "In Dockerfile, what does ENV PYTHONUNBUFFERED=1 do?", "answer": "It forces Python standard output and error streams to send unbuffered logs directly to terminal/Docker logs in real time."}, {"id": 189, "category": "Docker & Cloud Deployment", "question": "In Dockerfile, what does ENV PYTHONDONTWRITEBYTECODE=1 do?", "answer": "It prevents Python from writing .pyc files to disk inside the container, saving disk space and avoiding stale bytecode issues."}, {"id": 190, "category": "Celery Workers & Failure Semantics", "question": "In Dockerfile, why do we run rm -rf /var/lib/apt/lists/* after apt-get install?", "answer": "To delete package index files downloaded during apt-get update, reducing Docker image size by 30-50MB."}, {"id": 191, "category": "Observability & Monitoring", "question": "In docker-compose.yml, why is Prometheus configured with :ro on prometheus.yml?", "answer": "It mounts configuration as read-only, preventing container processes from modifying host configuration files."}, {"id": 192, "category": "Observability & Monitoring", "question": "How does Prometheus handle target downtime?", "answer": "If /metrics is unreachable, Prometheus marks target state as DOWN (up == 0) and fires alerts if configured."}, {"id": 193, "category": "Celery Workers & Failure Semantics", "question": "In apps/monitoring/metrics.py, why are specific buckets defined on JOB_EXECUTION_SECONDS?", "answer": "Buckets (0.1s to 120s) define latency histogram bins for tracking task distribution from fast 100ms tasks to 2-minute heavy tasks."}, {"id": 194, "category": "Redis & Distributed Locking", "question": "In apps/workers/tasks.py, why is ACTIVE_JOBS_GAUGE.dec() inside a finally block?", "answer": "Placing decrement in finally guarantees active job count is decremented whenever the worker exits, regardless of success, failure, or cancellation."}, {"id": 195, "category": "Testing & Load Simulation", "question": "In tests/load_testing/locustfile.py, what does @task(5) vs @task(1) mean?", "answer": "It sets relative execution weight; task(5) is chosen 5 times more frequently by simulated users than task(1)."}, {"id": 196, "category": "Observability & Monitoring", "question": "What is the difference between Latency and Throughput?", "answer": "Latency is time taken to complete a single unit of work (ms/seconds). Throughput is number of units completed per unit of time (requests/sec or jobs/min)."}, {"id": 197, "category": "Observability & Monitoring", "question": "What is p99 latency?", "answer": "99th percentile latency \u2014 99% of requests/jobs finished faster than this threshold, measuring worst-case tail performance."}, {"id": 198, "category": "Redis & Distributed Locking", "question": "What are the key limitations of this project in its current state?", "answer": "Single-node Redis broker, polling-based client status checks (instead of WebSockets/SSE), and monolithic repository layout."}, {"id": 199, "category": "Architecture & Fundamentals", "question": "What are the planned future extensions for this platform?", "answer": "WebSocket/SSE real-time push updates, dynamic task DAG workflows (Chains/Chords), and multi-region disaster recovery."}, {"id": 200, "category": "Redis & Distributed Locking", "question": "Summarize why this project proves readiness for a Backend / SDE role.", "answer": "It demonstrates mastery across ACID relational database design, message queue topologies, distributed locking, jittered backoff recovery, idempotency, API security, automated testing, container orchestration, and telemetry observability."}];
+
+        let state = {
+            currentIndex: 0,
+            filteredCards: [...QUESTIONS_DATA],
+            cardStatuses: JSON.parse(localStorage.getItem('djq_card_statuses') || '{}'),
+            currentMode: 'flashcard',
+            isFlipped: false
+        };
+
+        function init() {
+            updateStats();
+            filterCards();
+            renderTable();
+            setupKeyboardShortcuts();
+        }
+
+        function switchMode(mode) {
+            state.currentMode = mode;
+            document.getElementById('section-flashcard').classList.toggle('hidden', mode !== 'flashcard');
+            document.getElementById('section-table').classList.toggle('hidden', mode !== 'table');
+            document.getElementById('section-guide').classList.toggle('hidden', mode !== 'guide');
+
+            document.getElementById('tab-flashcard').className = mode === 'flashcard' ? 'px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow' : 'px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
+            document.getElementById('tab-table').className = mode === 'table' ? 'px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow' : 'px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
+            document.getElementById('tab-guide').className = mode === 'guide' ? 'px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow' : 'px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
+
+            if (mode === 'table') renderTable();
+        }
+
+        function filterCards() {
+            const cat = document.getElementById('filter-category').value;
+            const status = document.getElementById('filter-status').value;
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+
+            state.filteredCards = QUESTIONS_DATA.filter(item => {
+                if (cat !== 'ALL' && item.category !== cat) return false;
+                
+                const itemStatus = state.cardStatuses[item.id] || 'UNVIEWED';
+                if (status === 'FLAGGED' && itemStatus !== 'FLAGGED') return false;
+                if (status === 'MASTERED' && itemStatus !== 'MASTERED') return false;
+                if (status === 'UNVIEWED' && itemStatus !== 'UNVIEWED') return false;
+
+                if (search) {
+                    const matchQ = item.question.toLowerCase().includes(search);
+                    const matchA = item.answer.toLowerCase().includes(search);
+                    const matchId = `q${item.id}` === search || `${item.id}` === search;
+                    if (!matchQ && !matchA && !matchId) return false;
+                }
+
+                return true;
+            });
+
+            state.currentIndex = 0;
+            updateCardDisplay();
+            if (state.currentMode === 'table') renderTable();
+        }
+
+        function updateCardDisplay() {
+            const inner = document.getElementById('card-inner');
+            inner.classList.remove('flipped');
+            state.isFlipped = false;
+
+            const total = state.filteredCards.length;
+            document.getElementById('total-filtered-label').innerText = total;
+
+            if (total === 0) {
+                document.getElementById('current-index-label').innerText = '0';
+                document.getElementById('card-q-number').innerText = 'No Cards Found';
+                document.getElementById('card-question-text').innerText = 'No questions match your current filter criteria.';
+                document.getElementById('card-answer-text').innerText = 'Try changing category or clearing your search term.';
+                document.getElementById('current-category-pill').innerText = 'Empty';
+                return;
+            }
+
+            const card = state.filteredCards[state.currentIndex];
+            document.getElementById('current-index-label').innerText = (state.currentIndex + 1);
+            document.getElementById('card-q-number').innerText = `Question #${card.id}`;
+            document.getElementById('card-ans-number').innerText = `Answer #${card.id}`;
+            document.getElementById('card-question-text').innerText = card.question;
+            document.getElementById('card-answer-text').innerHTML = card.answer.replace(/\n/g, '<br>');
+            document.getElementById('card-topic-text').innerText = card.category;
+            document.getElementById('current-category-pill').innerText = card.category;
+        }
+
+        function toggleCardFlip() {
+            const inner = document.getElementById('card-inner');
+            state.isFlipped = !state.isFlipped;
+            inner.classList.toggle('flipped', state.isFlipped);
+        }
+
+        function rateCard(rating, e) {
+            if (e) e.stopPropagation();
+            if (state.filteredCards.length === 0) return;
+
+            const card = state.filteredCards[state.currentIndex];
+            if (rating === 'easy') {
+                state.cardStatuses[card.id] = 'MASTERED';
+            } else if (rating === 'again') {
+                state.cardStatuses[card.id] = 'FLAGGED';
+            } else {
+                state.cardStatuses[card.id] = 'REVIEW';
+            }
+
+            saveStatuses();
+            nextCard();
+        }
+
+        function nextCard(e) {
+            if (e) e.stopPropagation();
+            if (state.filteredCards.length === 0) return;
+            state.currentIndex = (state.currentIndex + 1) % state.filteredCards.length;
+            updateCardDisplay();
+        }
+
+        function prevCard(e) {
+            if (e) e.stopPropagation();
+            if (state.filteredCards.length === 0) return;
+            state.currentIndex = (state.currentIndex - 1 + state.filteredCards.length) % state.filteredCards.length;
+            updateCardDisplay();
+        }
+
+        function jumpToCard(id) {
+            const idx = state.filteredCards.findIndex(c => c.id === id);
+            if (idx !== -1) {
+                state.currentIndex = idx;
+                switchMode('flashcard');
+                updateCardDisplay();
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+
+            state.filteredCards.forEach(item => {
+                const status = state.cardStatuses[item.id] || 'UNVIEWED';
+                let badge = '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">Unviewed</span>';
+                if (status === 'MASTERED') badge = '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">Mastered</span>';
+                if (status === 'FLAGGED') badge = '<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold">Hard</span>';
+                if (status === 'REVIEW') badge = '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold">Review</span>';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/40 transition';
+                tr.innerHTML = `
+                    <td class="p-3.5 text-center font-mono font-bold text-slate-400">Q${item.id}</td>
+                    <td class="p-3.5 text-slate-300 font-medium"><span class="text-[11px] px-2 py-1 bg-slate-800/80 rounded-md border border-slate-700/60">${item.category}</span></td>
+                    <td class="p-3.5 text-slate-200 font-medium">${item.question}</td>
+                    <td class="p-3.5 text-center">${badge}</td>
+                    <td class="p-3.5 text-center">
+                        <button onclick="jumpToCard(${item.id})" class="px-2.5 py-1 text-[11px] rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-semibold">
+                            Practice
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateStats() {
+            let mastered = 0;
+            let flagged = 0;
+            let viewed = 0;
+
+            QUESTIONS_DATA.forEach(item => {
+                const s = state.cardStatuses[item.id];
+                if (s) viewed++;
+                if (s === 'MASTERED') mastered++;
+                if (s === 'FLAGGED') flagged++;
+            });
+
+            document.getElementById('count-mastered').innerText = mastered;
+            document.getElementById('count-flagged').innerText = flagged;
+            document.getElementById('count-viewed').innerText = viewed;
+
+            const percent = Math.round((viewed / 200) * 100);
+            document.getElementById('progress-percent').innerText = `${percent}% Completed`;
+
+            const masteryPercent = Math.round((mastered / 200) * 100);
+            document.getElementById('mastery-bar').style.width = `${masteryPercent}%`;
+            document.getElementById('mastery-label').innerText = `${mastered} / 200 Ready (${masteryPercent}%)`;
+        }
+
+        function saveStatuses() {
+            localStorage.setItem('djq_card_statuses', JSON.stringify(state.cardStatuses));
+            updateStats();
+        }
+
+        function resetProgress() {
+            if (confirm('Are you sure you want to reset all card mastery stats and progress?')) {
+                state.cardStatuses = {};
+                saveStatuses();
+                filterCards();
+            }
+        }
+
+        function setupKeyboardShortcuts() {
+            window.addEventListener('keydown', (e) => {
+                if (document.activeElement === document.getElementById('search-input')) return;
+
+                if (state.currentMode === 'flashcard') {
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        toggleCardFlip();
+                    } else if (e.key === '1') {
+                        rateCard('again');
+                    } else if (e.key === '2') {
+                        rateCard('good');
+                    } else if (e.key === '3') {
+                        rateCard('easy');
+                    } else if (e.code === 'ArrowRight') {
+                        nextCard();
+                    } else if (e.code === 'ArrowLeft') {
+                        prevCard();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
