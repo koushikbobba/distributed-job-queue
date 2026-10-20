@@ -33,14 +33,33 @@ for i, (q, a) in enumerate(qa, 1):
 
 data_json = json.dumps(categorized)
 
-template = '''<!DOCTYPE html>
+html_template = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDE Interview Master Dashboard | Distributed Job Queue</title>
+    <title>Distributed Job Queue — Architecture & Master Interview Dashboard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Mermaid.js for Architecture Diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                darkMode: true,
+                background: '#090d16',
+                primaryColor: '#0ea5e9',
+                primaryTextColor: '#f8fafc',
+                primaryBorderColor: '#38bdf8',
+                lineColor: '#38bdf8',
+                secondaryColor: '#1e293b',
+                tertiaryColor: '#0f172a'
+            }
+        });
+    </script>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         code, pre { font-family: 'JetBrains Mono', monospace; }
@@ -58,8 +77,8 @@ template = '''<!DOCTYPE html>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- Top Navigation Header -->
-    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
+    <!-- Top Sticky Header -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50 px-6 py-4">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 text-white font-bold text-xl">
@@ -67,19 +86,19 @@ template = '''<!DOCTYPE html>
                 </div>
                 <div>
                     <h1 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                        Distributed Job Queue <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">SDE Interview Mastery</span>
+                        Distributed Job Queue <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-semibold">Master Platform</span>
                     </h1>
-                    <p class="text-xs text-slate-400">Interactive Anki-Style Learning Dashboard & Viva Simulator (200 Questions)</p>
+                    <p class="text-xs text-slate-400">System Architecture, Deep-Dive Explanation & Anki Viva Simulator</p>
                 </div>
             </div>
 
             <!-- Global Action Bar -->
             <div class="flex items-center gap-2 flex-wrap">
                 <a href="anki_deck_distributed_job_queue.csv" download class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition shadow-sm">
-                    <span>📥 Download Anki CSV</span>
+                    <span>📥 Download Anki Deck (.csv)</span>
                 </a>
                 <a href="Distributed_Job_Queue_Viva_and_Project_Guide.pdf" download class="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 transition shadow-sm">
-                    <span>📄 Download Full PDF</span>
+                    <span>📄 Download Master PDF</span>
                 </a>
                 <button onclick="resetProgress()" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
                     🔄 Reset Stats
@@ -88,87 +107,295 @@ template = '''<!DOCTYPE html>
         </div>
     </header>
 
-    <!-- Main Content Container -->
+    <!-- Main Workspace Container -->
     <main class="max-w-7xl mx-auto px-6 py-6 flex-1 w-full flex flex-col gap-6">
 
-        <!-- Metric Cards Bar -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span class="text-xs font-medium text-slate-400">Total Question Bank</span>
-                <div class="text-2xl font-bold text-white mt-1">200</div>
-                <div class="text-[11px] text-cyan-400 mt-1">100% Comprehensive</div>
-            </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span class="text-xs font-medium text-slate-400">Mastered / Easy</span>
-                <div id="count-mastered" class="text-2xl font-bold text-emerald-400 mt-1">0</div>
-                <div class="text-[11px] text-slate-400 mt-1">Confidence Level: High</div>
-            </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span class="text-xs font-medium text-slate-400">Review Later / Hard</span>
-                <div id="count-flagged" class="text-2xl font-bold text-amber-400 mt-1">0</div>
-                <div class="text-[11px] text-slate-400 mt-1">Requires revision</div>
-            </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between">
-                <span class="text-xs font-medium text-slate-400">Cards Reviewed</span>
-                <div id="count-viewed" class="text-2xl font-bold text-indigo-400 mt-1">0</div>
-                <div id="progress-percent" class="text-[11px] text-slate-400 mt-1">0% Completed</div>
-            </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between col-span-2 md:col-span-1">
-                <span class="text-xs font-medium text-slate-400">Overall Mastery</span>
-                <div class="w-full bg-slate-800 rounded-full h-3 mt-2 overflow-hidden">
-                    <div id="mastery-bar" class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <div id="mastery-label" class="text-[11px] text-slate-400 mt-2 font-mono">0 / 200 Ready</div>
-            </div>
-        </div>
-
-        <!-- Mode Switcher Tabs -->
-        <div class="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-3">
+        <!-- Top Navigation Mode Switcher -->
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-4">
             <div class="flex items-center gap-2 bg-slate-900 p-1 rounded-xl border border-slate-800">
-                <button id="tab-flashcard" onclick="switchMode('flashcard')" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow">
-                    🎴 Flashcard Simulator
+                <button id="tab-arch" onclick="switchMode('arch')" class="px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow">
+                    📐 Architecture & Pipeline
+                </button>
+                <button id="tab-explain" onclick="switchMode('explain')" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white">
+                    📖 Deep Project Explanation
+                </button>
+                <button id="tab-flashcard" onclick="switchMode('flashcard')" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white">
+                    🎴 Anki Flashcard Simulator
                 </button>
                 <button id="tab-table" onclick="switchMode('table')" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white">
-                    📑 Question Explorer (All 200)
-                </button>
-                <button id="tab-guide" onclick="switchMode('guide')" class="px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white">
-                    🧠 How Anki Works for Interviews
+                    📑 200 Questions Bank
                 </button>
             </div>
 
-            <!-- Filters -->
-            <div class="flex items-center gap-3 flex-wrap text-xs">
-                <select id="filter-category" onchange="filterCards()" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500">
-                    <option value="ALL">All 8 Topics (200 Questions)</option>
-                    <option value="Architecture & Fundamentals">Architecture & Fundamentals</option>
-                    <option value="PostgreSQL & Database Design">PostgreSQL & Database Design</option>
-                    <option value="Redis & Distributed Locking">Redis & Distributed Locking</option>
-                    <option value="Celery Workers & Failure Semantics">Celery Workers & Failure Semantics</option>
-                    <option value="Idempotency & Deduplication">Idempotency & Deduplication</option>
-                    <option value="Auth, Security & Rate Limiting">Auth, Security & Rate Limiting</option>
-                    <option value="Observability & Monitoring">Observability & Monitoring</option>
-                    <option value="Docker & Cloud Deployment">Docker & Cloud Deployment</option>
-                    <option value="Testing & Load Simulation">Testing & Load Simulation</option>
-                </select>
-
-                <select id="filter-status" onchange="filterCards()" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500">
-                    <option value="ALL">All Statuses</option>
-                    <option value="FLAGGED">Hard / Flagged Only</option>
-                    <option value="UNVIEWED">Unreviewed Only</option>
-                    <option value="MASTERED">Mastered Only</option>
-                </select>
-
-                <input type="text" id="search-input" oninput="filterCards()" placeholder="Search keywords, Q#, Lua, FSM..." class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 w-52">
+            <!-- Stats Badge -->
+            <div class="flex items-center gap-3 text-xs font-mono">
+                <span class="text-slate-400">Readiness Score:</span>
+                <span id="nav-mastery-score" class="text-emerald-400 font-bold text-sm bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">0% Mastered</span>
             </div>
         </div>
 
-        <!-- MODE 1: FLASHCARD ANKI SIMULATOR -->
-        <section id="section-flashcard" class="flex flex-col items-center justify-center py-4 gap-6">
-            <div class="w-full max-w-3xl flex items-center justify-between text-xs text-slate-400 font-mono">
+        <!-- ======================================================== -->
+        <!-- SECTION 1: ARCHITECTURE & PIPELINE DIAGRAMS              -->
+        <!-- ======================================================== -->
+        <section id="section-arch" class="flex flex-col gap-8">
+            
+            <!-- Hero Architecture Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>📐</span> End-to-End Distributed Architecture
+                        </h2>
+                        <p class="text-xs text-slate-400">Complete asynchronous task lifecycle from HTTP request to worker completion and monitoring.</p>
+                    </div>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">Interactive Topology</span>
+                </div>
+
+                <!-- Mermaid Diagram Container -->
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 overflow-x-auto flex justify-center">
+                    <pre class="mermaid">
+flowchart TD
+    Client(["HTTP Client / Frontend / Webhook"])
+    
+    subgraph API_Layer ["1. API & Security Layer (Django REST Framework)"]
+        API["Django API Gateway"]
+        JWT["JWT Authenticator & Token Blacklist"]
+        Throttle["Redis Rate Limiter (100 req/min, 10 jobs/min)"]
+        Idem["Idempotency Guard (SHA-256 + Unique DB Constraint)"]
+        Outbox["Transactional Outbox Writer"]
+    end
+
+    subgraph Storage_Layer ["2. Persistent & Coordination Layer"]
+        PG[("PostgreSQL 15 Database\n- Jobs (Macro State)\n- JobExecutions (Audit Attempts)\n- JobResults (Outputs)\n- OutboxMessages (Guaranteed Delivery)")]
+        RedisBroker[("Redis 7.0 In-Memory Engine\n- Priority Message Queues\n- Distributed Locks (SETNX + Lua)\n- Throttling Sliding-Window Buckets")]
+    end
+
+    subgraph Worker_Pool ["3. Celery Distributed Worker Cluster"]
+        WH["High-Priority Worker Node(s)"]
+        WD["Default & Low-Priority Worker Node(s)"]
+        Reaper["Stalled Job Reaper (Celery Beat Sweeper)"]
+    end
+
+    subgraph Observability ["4. Telemetry & Metrics"]
+        Prom["Prometheus Engine (5s Scrape Interval)"]
+        Grafana["Grafana Dashboards (Throughput, p95 Latency)"]
+    end
+
+    Client -->|"POST /api/jobs/ (with Idempotency-Key)"| API
+    API --> JWT
+    JWT --> Throttle
+    Throttle --> Idem
+    Idem -->|"ACID Insert Job + Outbox"| PG
+    API -->|"Direct Dispatch (on_commit)"| RedisBroker
+    API -->|"HTTP 202 Accepted {job_id}"| Client
+
+    RedisBroker -->|"BRPOP high_priority"| WH
+    RedisBroker -->|"BRPOP default_priority"| WD
+    Reaper -.->|"Auto-recover stuck PROCESSING jobs"| RedisBroker
+
+    WH -->|"Atomic Lock (SETNX lock:job:uuid)"| RedisBroker
+    WH -->|"Transition state to PROCESSING"| PG
+    WH -->|"Execute Handler (GenerateReport, SendEmail)"| WH
+    WH -->|"Update state to COMPLETED / FAILED"| PG
+    WH -->|"Safe Release Lock (Lua Script)"| RedisBroker
+
+    API -.->|"Scrape /metrics"| Prom
+    Prom --> Grafana
+                    </pre>
+                </div>
+            </div>
+
+            <!-- Pipeline Breakdown Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Step 1 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="text-xs font-mono text-cyan-400 font-bold mb-1">STAGE 01</div>
+                        <h3 class="text-sm font-bold text-white mb-2">Ingestion & Idempotency</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Client issues <code>POST /api/jobs/</code>. The API checks JWT validity, evaluates sliding-window rate limits (10 submissions/min), hashes the request payload with <b>SHA-256</b>, and checks PostgreSQL for cached responses. Duplicate requests return cached responses instantly without creating duplicate background tasks.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-500 font-mono">
+                        Guarantees: Zero duplicate execution
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="text-xs font-mono text-cyan-400 font-bold mb-1">STAGE 02</div>
+                        <h3 class="text-sm font-bold text-white mb-2">Dual-Write Safety & Outbox</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Inside an ACID transaction, the <code>Job</code> and an <code>OutboxMessage</code> are saved simultaneously. Django's <code>transaction.on_commit()</code> hook dispatches the job to Redis <i>only after</i> PostgreSQL commits to disk, eliminating the post-commit race condition where workers query uncommitted rows.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-500 font-mono">
+                        Pattern: Transactional Outbox + on_commit
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="text-xs font-mono text-cyan-400 font-bold mb-1">STAGE 03</div>
+                        <h3 class="text-sm font-bold text-white mb-2">Worker Lock & Execution</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Celery workers perform priority blocking pops (<code>BRPOP</code>). Before execution, workers acquire a Redis distributed lock (<code>SETNX</code> with TTL). Handlers execute business logic, record immutable audit rows in <code>JobExecution</code>, handle retries with jitter, and release the lock via atomic Lua script.
+                        </p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-500 font-mono">
+                        Safety: Atomic Lua Lock Release
+                    </div>
+                </div>
+            </div>
+
+            <!-- State Machine Diagram Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>🔄</span> Finite State Machine (FSM) Lifecycle
+                        </h2>
+                        <p class="text-xs text-slate-400">Strict state transition validation preventing illegal mutations or corrupt status jumps.</p>
+                    </div>
+                    <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">Enforced in Model</span>
+                </div>
+
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 overflow-x-auto flex justify-center">
+                    <pre class="mermaid">
+stateDiagram-v2
+    [*] --> QUEUED: Job Created via API
+    QUEUED --> PROCESSING: Worker pops & acquires Redis lock
+    QUEUED --> CANCELLED: User requests cancellation
+    
+    PROCESSING --> COMPLETED: Handler returns success
+    PROCESSING --> RETRYING: Failure & retry_count < max_retries
+    PROCESSING --> FAILED: Retries exhausted
+    PROCESSING --> CANCELLED: Cancellation detected mid-execution
+    
+    RETRYING --> PROCESSING: Exponential backoff delay expires
+    RETRYING --> CANCELLED: Cancelled during backoff window
+    
+    COMPLETED --> [*]: Terminal State
+    FAILED --> [*]: Terminal State
+    CANCELLED --> [*]: Terminal State
+                    </pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================== -->
+        <!-- SECTION 2: DEEP PROJECT EXPLANATION                      -->
+        <!-- ======================================================== -->
+        <section id="section-explain" class="hidden flex-col gap-6">
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 flex flex-col gap-6 shadow-xl">
+                <div class="border-b border-slate-800 pb-4">
+                    <span class="text-xs font-mono text-cyan-400 font-bold uppercase tracking-wider">Executive Engineering Summary</span>
+                    <h2 class="text-2xl font-bold text-white mt-1">What is this project and what problem does it solve?</h2>
+                </div>
+
+                <div class="text-sm text-slate-300 leading-relaxed space-y-4">
+                    <p>
+                        In conventional synchronous web applications, when an end-user triggers a computationally heavy operation (such as compiling an annual PDF tax report, processing bulk datasets, or dispatching 10,000 marketing emails), the web server thread executes that task directly within the HTTP request-response cycle.
+                    </p>
+                    <p>
+                        This synchronous design introduces severe production vulnerabilities:
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-2">
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <span class="text-rose-400 font-bold text-xs uppercase font-mono">1. HTTP Gateway Timeouts (504)</span>
+                            <p class="text-xs text-slate-400 mt-1">AWS Application Load Balancers, NGINX reverse proxies, and browsers terminate connections that exceed 30–60 seconds, dropping the user's connection while the server continues working in vain.</p>
+                        </div>
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <span class="text-rose-400 font-bold text-xs uppercase font-mono">2. Web Worker Thread Starvation</span>
+                            <p class="text-xs text-slate-400 mt-1">Gunicorn or Uvicorn worker threads blocked on long-running tasks cannot accept incoming requests from other users, causing complete application unresponsiveness.</p>
+                        </div>
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <span class="text-rose-400 font-bold text-xs uppercase font-mono">3. Accidental Duplicate Execution</span>
+                            <p class="text-xs text-slate-400 mt-1">When network packets drop, frontend apps or automated webhooks retry the HTTP request, causing non-idempotent operations (such as charging credit cards) to run twice.</p>
+                        </div>
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <span class="text-rose-400 font-bold text-xs uppercase font-mono">4. Worker Crash Message Loss</span>
+                            <p class="text-xs text-slate-400 mt-1">Standard task queues that acknowledge messages before execution immediately lose jobs forever if the worker process suffers an Out-Of-Memory (OOM) kill or power loss.</p>
+                        </div>
+                    </div>
+                    <p>
+                        <b>The Solution:</b> This project implements an enterprise-grade <b>Distributed Task Queue & Background Processing Platform</b>. It decouples synchronous ingestion from execution. Incoming requests receive an immediate <code>HTTP 202 Accepted</code> response with a <code>job_id</code> in <b>under 10 milliseconds</b>, delegating background execution to horizontally scalable Celery workers coordinated by Redis and PostgreSQL.
+                    </p>
+                </div>
+
+                <!-- 5 Core Engineering Pillars -->
+                <div class="border-t border-slate-800 pt-6">
+                    <h3 class="text-base font-bold text-white mb-4">5 Key Distributed Systems Challenges Solved</h3>
+                    
+                    <div class="space-y-4 text-xs text-slate-300">
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <h4 class="font-bold text-cyan-400 text-sm mb-1">1. The Post-Commit Message Dispatch Race Condition</h4>
+                            <p class="text-slate-400 leading-relaxed">
+                                <b>The Bug:</b> If an API dispatches a task to Celery inside an uncommitted database transaction, message transmission over Redis takes &lt;1ms. A fast worker pops the task from Redis and queries PostgreSQL (<code>Job.objects.get(id=job_id)</code>) before the web server's transaction has committed, immediately crashing with <code>Job.DoesNotExist</code>.
+                            </p>
+                            <p class="text-slate-400 mt-1">
+                                <b>The Fix:</b> We wrapped Celery publishing inside Django's <code>transaction.on_commit()</code> hook combined with a persistent <code>OutboxMessage</code> table. The task enters Redis strictly after PostgreSQL confirms the commit has hit disk.
+                            </p>
+                        </div>
+
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <h4 class="font-bold text-cyan-400 text-sm mb-1">2. Mutual Exclusion via Redis Distributed Locking</h4>
+                            <p class="text-slate-400 leading-relaxed">
+                                <b>The Bug:</b> Network retries or duplicate message deliveries can cause two workers to execute the same job simultaneously. Furthermore, if a worker's lock expires while it is still working, another worker grabs the lock. If the first worker finishes and blindly executes <code>DEL lock:job:uuid</code>, it deletes the second worker's active lock!
+                            </p>
+                            <p class="text-slate-400 mt-1">
+                                <b>The Fix:</b> We acquire locks via <code>SET key token NX PX 120000</code> and release locks via an atomic Lua script verifying that the token in Redis matches the worker's unique UUID token before deletion.
+                            </p>
+                        </div>
+
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <h4 class="font-bold text-cyan-400 text-sm mb-1">3. Thundering Herd Storms & Exponential Backoff with Jitter</h4>
+                            <p class="text-slate-400 leading-relaxed">
+                                <b>The Bug:</b> If an external service or database suffers a temporary network glitch, hundreds of failing tasks retrying at identical exponential intervals (e.g. exactly 2s, 4s, 8s) will hit the recovering service at the exact same second, crashing it repeatedly.
+                            </p>
+                            <p class="text-slate-400 mt-1">
+                                <b>The Fix:</b> We calculate retries using Full Random Jitter: <code>delay = random.uniform(0, min(300, 2^retry_count * base_delay))</code>, dispersing retry traffic uniformly across the timeline.
+                            </p>
+                        </div>
+
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <h4 class="font-bold text-cyan-400 text-sm mb-1">4. Worker Crash Recovery (At-Least-Once Delivery)</h4>
+                            <p class="text-slate-400 leading-relaxed">
+                                <b>The Bug:</b> Default Celery acknowledges messages when received (<code>acks_late=False</code>). If a container is terminated mid-task, the job disappears without a trace.
+                            </p>
+                            <p class="text-slate-400 mt-1">
+                                <b>The Fix:</b> We configure <code>task_acks_late = True</code> and <code>task_reject_on_worker_lost = True</code>. If a worker process dies, Redis re-queues the message to another healthy worker, and a periodic Celery Beat reaper sweeps jobs stuck in <code>PROCESSING</code>.
+                            </p>
+                        </div>
+
+                        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <h4 class="font-bold text-cyan-400 text-sm mb-1">5. Multi-Tenant Row-Level Isolation</h4>
+                            <p class="text-slate-400 leading-relaxed">
+                                <b>The Bug:</b> In multi-tenant platforms, attackers attempt ID enumeration attacks (guessing <code>/api/jobs/1</code>, <code>/api/jobs/2</code>) to view other tenants' sensitive task outputs.
+                            </p>
+                            <p class="text-slate-400 mt-1">
+                                <b>The Fix:</b> We enforce UUIDv4 primary keys and override DRF's <code>get_queryset()</code> with <code>Job.objects.filter(user=request.user)</code>. Guessing another user's UUID returns <code>HTTP 404 Not Found</code> instead of <code>403 Forbidden</code>, hiding resource existence entirely.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================== -->
+        <!-- SECTION 3: ANKI FLASHCARD SIMULATOR                      -->
+        <!-- ======================================================== -->
+        <section id="section-flashcard" class="hidden flex-col items-center justify-center py-4 gap-6">
+            
+            <!-- Filter Bar for Cards -->
+            <div class="w-full max-w-3xl flex items-center justify-between text-xs text-slate-400 font-mono flex-wrap gap-3">
                 <div>Card <span id="current-index-label" class="text-cyan-400 font-bold text-sm">1</span> of <span id="total-filtered-label" class="text-white font-bold text-sm">200</span></div>
                 <div id="current-category-pill" class="px-2.5 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-sans">Architecture</div>
                 <div class="flex items-center gap-2">
-                    <span>Shortcut: <b>Space</b> (Flip), <b>1/2/3</b> (Rate)</span>
+                    <span>Keyboard: <b>Space</b> (Flip), <b>1/2/3</b> (Rate)</span>
                 </div>
             </div>
 
@@ -225,7 +452,7 @@ template = '''<!DOCTYPE html>
                     ⬅ Previous
                 </button>
                 <button onclick="rateCard('again', event)" class="px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
-                    🔴 Again / Hard (Key: 1)
+                    🔴 Hard / Again (Key: 1)
                 </button>
                 <button onclick="rateCard('good', event)" class="px-5 py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
                     🟡 Good / Review (Key: 2)
@@ -239,8 +466,37 @@ template = '''<!DOCTYPE html>
             </div>
         </section>
 
-        <!-- MODE 2: TABLE / QUESTION EXPLORER -->
+        <!-- ======================================================== -->
+        <!-- SECTION 4: 200 QUESTION TABLE EXPLORER                   -->
+        <!-- ======================================================== -->
         <section id="section-table" class="hidden flex-col gap-4">
+            
+            <div class="flex items-center justify-between gap-4 flex-wrap text-xs">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <select id="filter-category" onchange="filterCards()" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500">
+                        <option value="ALL">All 8 Topics (200 Questions)</option>
+                        <option value="Architecture & Fundamentals">Architecture & Fundamentals</option>
+                        <option value="PostgreSQL & Database Design">PostgreSQL & Database Design</option>
+                        <option value="Redis & Distributed Locking">Redis & Distributed Locking</option>
+                        <option value="Celery Workers & Failure Semantics">Celery Workers & Failure Semantics</option>
+                        <option value="Idempotency & Deduplication">Idempotency & Deduplication</option>
+                        <option value="Auth, Security & Rate Limiting">Auth, Security & Rate Limiting</option>
+                        <option value="Observability & Monitoring">Observability & Monitoring</option>
+                        <option value="Docker & Cloud Deployment">Docker & Cloud Deployment</option>
+                        <option value="Testing & Load Simulation">Testing & Load Simulation</option>
+                    </select>
+
+                    <select id="filter-status" onchange="filterCards()" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500">
+                        <option value="ALL">All Statuses</option>
+                        <option value="FLAGGED">Hard / Flagged Only</option>
+                        <option value="UNVIEWED">Unreviewed Only</option>
+                        <option value="MASTERED">Mastered Only</option>
+                    </select>
+
+                    <input type="text" id="search-input" oninput="filterCards()" placeholder="Search keywords, Q#, Lua, FSM..." class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-2 rounded-lg outline-none focus:border-cyan-500 w-56">
+                </div>
+            </div>
+
             <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow">
                 <div class="max-h-[600px] overflow-y-auto">
                     <table class="w-full text-left text-xs text-slate-300">
@@ -260,82 +516,9 @@ template = '''<!DOCTYPE html>
             </div>
         </section>
 
-        <!-- MODE 3: HOW ANKI HELPS LEARN FOR INTERVIEWS -->
-        <section id="section-guide" class="hidden flex-col gap-6 max-w-4xl mx-auto text-slate-300 leading-relaxed text-sm">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 flex flex-col gap-6 shadow-xl">
-                <div class="flex items-center gap-3 text-cyan-400 border-b border-slate-800 pb-4">
-                    <span class="text-3xl">🧠</span>
-                    <div>
-                        <h2 class="text-xl font-bold text-white">Can Anki Help You Ace Your SDE Interviews?</h2>
-                        <p class="text-xs text-slate-400">The science of Active Recall & Spaced Repetition for Backend Engineering</p>
-                    </div>
-                </div>
-
-                <div class="space-y-4">
-                    <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span> 1. The Core Problem with SDE Technical Interviews
-                    </h3>
-                    <p>
-                        In backend developer interviews, examiners do not just ask you to recite basic definitions. They probe your understanding of <b>distributed systems trade-offs and edge cases</b>:
-                        <i>"Why did you release the lock with Lua instead of DEL?", "What happens if the worker dies after database commit?", "How does worker_prefetch_multiplier prevent queue starvation?"</i>
-                    </p>
-                    <p>
-                        Passive reading (re-reading code or notes) creates an <b>illusion of competence</b>. When an interviewer challenges you with realistic follow-ups, passive recognition breaks down.
-                    </p>
-                </div>
-
-                <div class="space-y-4">
-                    <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span> 2. Why Anki & Flashcards Work Wonders
-                    </h3>
-                    <p>
-                        Anki uses two cognitive principles proven by neuroscience:
-                    </p>
-                    <ul class="list-disc list-inside space-y-2 pl-2 text-slate-300">
-                        <li><b>Active Recall (Testing Effect):</b> Seeing the prompt (e.g. <i>"Why use transaction.on_commit?"</i>) forces your brain to reconstruct the technical solution from scratch. This strengthens retrieval pathways by over 300%.</li>
-                        <li><b>Spaced Repetition System (SRS):</b> Hard questions (e.g. atomic Lua scripts, Optimistic Concurrency Control, Transactional Outbox) are reviewed more frequently, while easy concepts are spaced out over days and weeks.</li>
-                    </ul>
-                </div>
-
-                <div class="space-y-4">
-                    <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-amber-400"></span> 3. How to Use this Dashboard & Your Anki Deck
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                            <h4 class="font-bold text-white mb-2 text-xs uppercase tracking-wider text-cyan-400">Method 1: Interactive Web Simulator</h4>
-                            <p class="text-xs text-slate-400 mb-2">Use the <b>🎴 Flashcard Simulator</b> above right inside your browser:</p>
-                            <ul class="text-xs space-y-1.5 list-disc list-inside text-slate-300">
-                                <li>Press <b>Spacebar</b> to flip cards.</li>
-                                <li>Press <b>1</b> for Again, <b>2</b> for Review, <b>3</b> for Mastered.</li>
-                                <li>Filter by specific topic (e.g., Redis Locking or PostgreSQL).</li>
-                            </ul>
-                        </div>
-                        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800">
-                            <h4 class="font-bold text-white mb-2 text-xs uppercase tracking-wider text-emerald-400">Method 2: Official Anki Desktop App</h4>
-                            <p class="text-xs text-slate-400 mb-2">Study on mobile or desktop with the exported deck:</p>
-                            <ol class="text-xs space-y-1.5 list-decimal list-inside text-slate-300">
-                                <li>Download the <code>anki_deck_distributed_job_queue.csv</code> button on top.</li>
-                                <li>Open Anki Desktop & click <b>Import File</b>.</li>
-                                <li>Select comma separated, map Front/Back/Tags.</li>
-                                <li>Practice 20 cards every morning before your interviews!</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="p-4 rounded-xl bg-cyan-950/30 border border-cyan-800/40 text-xs text-cyan-300 flex items-start gap-3">
-                    <span class="text-lg">💡</span>
-                    <div>
-                        <b>Pro Tip for Interviews:</b> When you flip a card, don't just read the answer in your head. <b>Speak the explanation aloud</b> in 2-3 concise sentences. This trains your verbal fluency, speech pacing, and engineering vocabulary.
-                    </div>
-                </div>
-            </div>
-        </section>
-
     </main>
 
-    <!-- Embedded Data & Engine -->
+    <!-- Embedded Engine & State Management -->
     <script>
         const QUESTIONS_DATA = ''' + data_json + ''';
 
@@ -343,7 +526,7 @@ template = '''<!DOCTYPE html>
             currentIndex: 0,
             filteredCards: [...QUESTIONS_DATA],
             cardStatuses: JSON.parse(localStorage.getItem('djq_card_statuses') || '{}'),
-            currentMode: 'flashcard',
+            currentMode: 'arch',
             isFlipped: false
         };
 
@@ -356,13 +539,21 @@ template = '''<!DOCTYPE html>
 
         function switchMode(mode) {
             state.currentMode = mode;
+            document.getElementById('section-arch').classList.toggle('hidden', mode !== 'arch');
+            document.getElementById('section-explain').classList.toggle('hidden', mode !== 'explain');
             document.getElementById('section-flashcard').classList.toggle('hidden', mode !== 'flashcard');
             document.getElementById('section-table').classList.toggle('hidden', mode !== 'table');
-            document.getElementById('section-guide').classList.toggle('hidden', mode !== 'guide');
 
-            document.getElementById('tab-flashcard').className = mode === 'flashcard' ? 'px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow' : 'px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
-            document.getElementById('tab-table').className = mode === 'table' ? 'px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow' : 'px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
-            document.getElementById('tab-guide').className = mode === 'guide' ? 'px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow' : 'px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
+            // Tab button styles
+            const tabs = ['arch', 'explain', 'flashcard', 'table'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) {
+                    btn.className = (t === mode) 
+                        ? 'px-4 py-2 text-xs font-bold rounded-lg transition bg-cyan-500 text-slate-950 shadow' 
+                        : 'px-4 py-2 text-xs font-bold rounded-lg transition text-slate-400 hover:text-white';
+                }
+            });
 
             if (mode === 'table') renderTable();
         }
@@ -498,26 +689,12 @@ template = '''<!DOCTYPE html>
 
         function updateStats() {
             let mastered = 0;
-            let flagged = 0;
-            let viewed = 0;
-
             QUESTIONS_DATA.forEach(item => {
-                const s = state.cardStatuses[item.id];
-                if (s) viewed++;
-                if (s === 'MASTERED') mastered++;
-                if (s === 'FLAGGED') flagged++;
+                if (state.cardStatuses[item.id] === 'MASTERED') mastered++;
             });
-
-            document.getElementById('count-mastered').innerText = mastered;
-            document.getElementById('count-flagged').innerText = flagged;
-            document.getElementById('count-viewed').innerText = viewed;
-
-            const percent = Math.round((viewed / 200) * 100);
-            document.getElementById('progress-percent').innerText = `${percent}% Completed`;
-
             const masteryPercent = Math.round((mastered / 200) * 100);
-            document.getElementById('mastery-bar').style.width = `${masteryPercent}%`;
-            document.getElementById('mastery-label').innerText = `${mastered} / 200 Ready (${masteryPercent}%)`;
+            const badge = document.getElementById('nav-mastery-score');
+            if (badge) badge.innerText = `${masteryPercent}% Mastered (${mastered}/200)`;
         }
 
         function saveStatuses() {
@@ -526,7 +703,7 @@ template = '''<!DOCTYPE html>
         }
 
         function resetProgress() {
-            if (confirm('Are you sure you want to reset all card mastery stats and progress?')) {
+            if (confirm('Reset all card mastery stats and revision progress?')) {
                 state.cardStatuses = {};
                 saveStatuses();
                 filterCards();
@@ -563,6 +740,6 @@ template = '''<!DOCTYPE html>
 '''
 
 with open('interview_dashboard.html', 'w', encoding='utf-8') as f:
-    f.write(template)
+    f.write(html_template)
 
-print('Generated interview_dashboard.html successfully!')
+print('Updated interview_dashboard.html with Architecture and Explanations!')
